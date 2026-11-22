@@ -1,22 +1,13 @@
 
-# Dependências
 node_modules/
 
-# Variáveis de ambiente e segredos
 .env
 .env.*
 !.env.example
 
-# Banco de dados SQLite
 *.db
 *.sqlite
 *.sqlite3
 
-# Logs
-logs/
-*.log
 npm-debug.log*
-
-# Sistema operacional
-.DS_Store
-Thumbs.db
+logs/

@@ -1,0 +1,19 @@
+
+services:
+  watt-monitor:
+    build: .
+    container_name: watt-monitor
+    restart: unless-stopped
+    init: true
+
+    env_file:
+      - .env
+
+    ports:
+      - "3000:3000"
+
+    volumes:
+      - watt_data:/data
+
+volumes:
+  watt_data:
