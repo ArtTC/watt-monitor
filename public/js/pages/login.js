@@ -5,11 +5,10 @@ export function renderLogin(container, { onAuthenticated, onRegister }) {
     container.innerHTML = `
       <main class="shell auth-shell">
         <section class="auth-card">
-          <div class="theme-auth">${renderThemeToggle()}</div>
-          <div class="brand auth-brand"><div class="brand-mark" aria-hidden="true">☀</div><div><h1>Medidor Solar</h1><p>Monitoramento fotovoltaico</p></div></div>
+          <div class="auth-header"><div class="brand auth-brand"><div class="brand-mark"><img src="/watt-monitor-icon.svg" alt=""></div><div><h1>Watt Monitor</h1><p>Monitoramento fotovoltaico</p></div></div><div class="theme-auth">${renderThemeToggle()}</div></div>
           <div class="eyebrow">Acesso ao sistema</div>
           <h2>Bem-vindo de volta</h2>
-          <p class="auth-copy">Entre na sua conta para acompanhar seus dispositivos e medições solares.</p>
+          <p class="auth-copy">Entre na sua conta para acompanhar seus equipamentos e medições solares.</p>
           <div id="login-notice" class="notice" role="alert"></div>
           <form id="login-form">
             <div class="field"><label for="login-email">E-mail</label><input id="login-email" name="email" type="email" maxlength="180" autocomplete="email" required placeholder="voce@exemplo.com"></div>

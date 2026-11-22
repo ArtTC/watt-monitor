@@ -27,7 +27,7 @@ function list(req, res) {
         const macs = [...new Set(requestedDevices.map(normalizeMac))];
         if (macs.some((mac) => !isValidMac(mac))) return res.status(400).json({ sucesso: false, mensagem: "MAC inválido." });
         const ownedDevices = macs.map((mac) => devices.findByMac(mac));
-        if (ownedDevices.some((device) => !device || Number(device.usuario_id) !== Number(req.user.id))) return res.status(404).json({ sucesso: false, mensagem: "Um ou mais dispositivos não pertencem à sua conta." });
+        if (ownedDevices.some((device) => !device || Number(device.usuario_id) !== Number(req.user.id))) return res.status(404).json({ sucesso: false, mensagem: "Um ou mais equipamentos não pertencem à sua conta." });
         deviceIds = ownedDevices.map((device) => device.id);
     }
     try {

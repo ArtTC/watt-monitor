@@ -21,7 +21,7 @@ function receive(req, res) {
         // Sem chave adicional: o MAC precisa estar previamente vinculado a uma conta.
         const device = devices.findByMac(mac);
         if (!device || device.removido_em || Number(device.aceita_medicoes) !== 1 || device.esp_id !== mac) {
-            return res.status(403).json({ sucesso: false, mensagem: "ESP32 não cadastrado. Vincule o dispositivo a uma conta primeiro." });
+            return res.status(403).json({ sucesso: false, mensagem: "Equipamento não cadastrado. Vincule-o a uma conta primeiro." });
         }
 
         const measuredAt = new Date().toISOString();
@@ -43,7 +43,7 @@ function receive(req, res) {
 function latestForUser(req, res) {
     try {
         res.json(measurements.latestForUser(req.user.id) || {
-            mensagem: "Nenhuma medição recebida para seus dispositivos."
+            mensagem: "Nenhuma medição recebida para seus equipamentos."
         });
     } catch (error) {
         console.error("Erro ao consultar última medição:", error);
@@ -65,12 +65,12 @@ function historyForDevice(req, res) {
         const mac = normalizeMac(req.params.esp_id);
         const device = devices.findByMac(mac);
         if (!device || Number(device.usuario_id) !== Number(req.user.id)) {
-            return res.status(404).json({ mensagem: "Dispositivo não encontrado na sua conta." });
+            return res.status(404).json({ mensagem: "Equipamento não encontrado na sua conta." });
         }
         res.json(measurements.historyForDevice(device.id, req.user.id));
     } catch (error) {
-        console.error("Erro ao consultar medições do dispositivo:", error);
-        res.status(500).json({ sucesso: false, mensagem: "Erro ao consultar medições do dispositivo." });
+        console.error("Erro ao consultar medições do equipamento:", error);
+        res.status(500).json({ sucesso: false, mensagem: "Erro ao consultar medições do equipamento." });
     }
 }
 

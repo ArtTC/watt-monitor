@@ -20,7 +20,7 @@ const presets = [
     ["comparison", "Comparação entre equipamentos", categories.find((item) => item.id === "comparacao").graphs.map(([id]) => id)],
     ["availability", "Disponibilidade", categories.find((item) => item.id === "disponibilidade").graphs.map(([id]) => id)]
 ];
-const palette = ["#237d45", "#2367a8", "#ad5a17", "#8141a5", "#b23242", "#00838f"];
+const palette = ["#8a6500", "#2367a8", "#ad5a17", "#8141a5", "#b23242", "#00838f"];
 let activeListeners = null;
 
 function localDate(date) {
@@ -43,12 +43,13 @@ export async function mountAnalytics(container, user) {
     const startDefault = new Date(today); startDefault.setDate(startDefault.getDate() - 7);
     const selectedGraphs = new Set();
     let appliedFilters = null;
+    let hasAppliedFilters = false;
     let response = null;
     let loading = false;
     let calculationSequence = 0;
 
     container.innerHTML = `<div class="page-heading"><div><div class="eyebrow">Exploração de dados</div><h2>Análises</h2><p>Monte suas visualizações e explore o comportamento dos equipamentos fotovoltaicos.</p></div></div>
-      <section class="panel analytics-filter-panel" id="analytics-filters"><div class="section-head"><div><h3>Filtros</h3><p class="section-sub">Os dados ficam limitados aos equipamentos da sua conta.</p></div></div>
+      <section class="panel analytics-filter-panel" id="analytics-filters">
         <div class="form-row analytics-filter-grid"><div class="field"><label>Equipamentos</label>${renderDevicePicker({ id: "analytics-device-picker", devices, allLabel: "Todos os equipamentos", emptyLabel: "Nenhum equipamento ativo cadastrado." })}</div>
         <div class="field"><label for="analytics-start">Data inicial</label><input id="analytics-start" type="date" value="${localDate(startDefault)}" max="${localDate(today)}"></div>
         <div class="field"><label for="analytics-start-time">Hora inicial</label><input id="analytics-start-time" type="time" value="00:00"></div>
@@ -60,7 +61,7 @@ export async function mountAnalytics(container, user) {
         <div class="field analytics-mode-field"><label for="analytics-mode">Tipo de análise</label><select id="analytics-mode"><option value="custom">Análise personalizada</option><optgroup label="Análises prontas">${presets.map(([id, label]) => `<option value="${id}">${label}</option>`).join("")}</optgroup></select><p class="section-sub">Escolha uma análise pronta ou personalize os gráficos e categorias abaixo.</p></div>
         <div class="analytics-categories">${categories.map((category) => `<details class="analytics-category" data-category="${category.id}"><summary><span class="analytics-category-title"><input class="analytics-category-check" type="checkbox" data-category-check="${category.id}" aria-label="Selecionar todos os gráficos de ${category.name}"><span>${category.name}</span></span></summary><div class="analytics-checks">${category.graphs.map(([id, title]) => `<label class="analytics-check"><input class="analytics-graph-check" type="checkbox" value="${id}"><span>${title}</span></label>`).join("")}</div></details>`).join("")}</div>
         <div class="form-actions analytics-selection-actions"><span class="muted"><strong id="analytics-selected-count">0</strong> gráfico(s) selecionado(s)</span><button class="btn btn-danger" id="analytics-clear-selection" type="button">Remover todos</button></div></section>
-      <section class="analytics-view" id="analytics-view"><div class="section-head"><div><div class="eyebrow">Resultados filtrados</div><h2>Minhas análises</h2></div><div class="page-actions"><button class="btn" id="analytics-back-to-filters" type="button">Voltar aos filtros</button><button class="btn" id="analytics-save-pdf" type="button">Salvar PDF</button><button class="btn btn-primary" id="analytics-refresh" type="button">Atualizar análises</button></div></div>
+      <section class="analytics-view" id="analytics-view" hidden><div class="section-head"><div><div class="eyebrow">Resultados filtrados</div><h2>Minhas análises</h2></div><div class="page-actions"><button class="btn" id="analytics-back-to-filters" type="button">Voltar aos filtros</button><button class="btn" id="analytics-save-pdf" type="button">Salvar PDF</button><button class="btn btn-primary" id="analytics-refresh" type="button">Atualizar análises</button></div></div>
         <div id="analytics-warning" class="notice"></div><div class="summary-grid analytics-summary" id="analytics-summary"><div class="empty">Aplique os filtros para carregar os indicadores.</div></div>
         <div id="analytics-device-summary-grid" class="analytics-device-summary"></div><div id="analytics-results"><div class="empty">Selecione gráficos acima para adicioná-los à sua análise.</div></div></section>`;
 
@@ -124,8 +125,8 @@ export async function mountAnalytics(container, user) {
         document.getElementById("analytics-device-summary-grid").innerHTML = indicators.por_equipamento.map((device) => `<div class="analytics-device-stat"><strong>${escapeHtml(device.nome)}</strong><span>${escapeHtml(device.mac)}</span><span>${device.quantidade} medição(ões) · média ${formatNumber(device.potencia_media)} W · máxima ${formatNumber(device.potencia_maxima)} W</span></div>`).join("");
     };
     const calculate = async () => {
+        if (!hasAppliedFilters) return;
         const sequence = ++calculationSequence;
-        if (!appliedFilters) appliedFilters = readFilters();
         if (!appliedFilters.esp_ids.length) {
             document.getElementById("analytics-notice").textContent = "Selecione ao menos um equipamento ativo.";
             document.getElementById("analytics-notice").classList.add("show");
@@ -187,7 +188,12 @@ export async function mountAnalytics(container, user) {
     document.getElementById("analytics-expand").addEventListener("click", () => container.querySelectorAll(".analytics-category").forEach((node) => { node.open = true; }), { signal });
     document.getElementById("analytics-collapse").addEventListener("click", () => container.querySelectorAll(".analytics-category").forEach((node) => { node.open = false; }), { signal });
     document.getElementById("analytics-clear-selection").addEventListener("click", () => { selectedGraphs.clear(); document.getElementById("analytics-mode").value = "custom"; syncGraphChecks(); drawCards(); }, { signal });
-    document.getElementById("analytics-apply").addEventListener("click", () => { appliedFilters = readFilters(); calculate(); }, { signal });
+    document.getElementById("analytics-apply").addEventListener("click", () => {
+        appliedFilters = readFilters();
+        hasAppliedFilters = true;
+        document.getElementById("analytics-view").hidden = false;
+        calculate();
+    }, { signal });
     document.getElementById("analytics-clear-filters").addEventListener("click", () => {
         container.querySelectorAll(".device-picker-item").forEach((input) => { input.checked = true; }); devicePicker.sync();
         document.getElementById("analytics-start").value = localDate(startDefault);
@@ -195,7 +201,15 @@ export async function mountAnalytics(container, user) {
         document.getElementById("analytics-end").value = localDate(today);
         document.getElementById("analytics-end-time").value = "23:59";
         document.getElementById("analytics-group").value = "hour";
-        appliedFilters = readFilters(); calculate();
+        hasAppliedFilters = false;
+        appliedFilters = null;
+        response = null;
+        document.getElementById("analytics-view").hidden = true;
+        document.getElementById("analytics-notice").className = "notice";
+        document.getElementById("analytics-notice").textContent = "";
+        document.getElementById("analytics-summary").innerHTML = `<div class="empty">Aplique os filtros para carregar os indicadores.</div>`;
+        document.getElementById("analytics-device-summary-grid").innerHTML = "";
+        drawCards();
     }, { signal });
     document.getElementById("analytics-refresh").addEventListener("click", calculate, { signal });
     document.getElementById("analytics-save-pdf").addEventListener("click", () => {
@@ -223,7 +237,7 @@ export async function mountAnalytics(container, user) {
         const devicesLabel = selectedDevices.map((device) => `${device.nome} (${device.esp_id})`).join(", ");
         const groupLabel = { hour: "Hora", day: "Dia", month: "Mês" }[appliedFilters.agrupamento] || appliedFilters.agrupamento;
         const generatedAt = new Date().toLocaleString("pt-BR");
-        win.document.write(`<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Análises · Medidor Solar</title><style>
+        win.document.write(`<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Análises · Watt Monitor</title><style>
           *{box-sizing:border-box}body{margin:24px;color:#17231c;font:12px Arial,sans-serif}h1{margin:0 0 4px;color:#176f39;font-size:24px}h2{margin:20px 0 10px;font-size:17px}.meta{margin:12px 0 18px;line-height:1.7;color:#39483e}.analytics-pdf-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.summary-card,.analytics-device-stat,.analytics-card{break-inside:avoid;border:1px solid #d5e0d8;border-radius:10px;padding:10px;background:#fff}.summary-label{color:#52645a;font-size:10px}.summary-value{margin-top:5px;font-size:17px;font-weight:bold}.analytics-device-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.analytics-device-stat{display:grid;gap:4px}.analytics-device-stat span,.analytics-meta,.analytics-card-head p,.analytics-events p{color:#52645a}.analytics-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.analytics-card-wide{grid-column:1/-1}.analytics-card-head{display:flex;justify-content:space-between;gap:8px}.analytics-card-head h3{margin:0;font-size:14px}.analytics-card-head p{margin:4px 0;font-size:10px}.analytics-meta{display:grid;gap:3px;margin:7px 0;font-size:9px}.analytics-legend{display:flex;flex-wrap:wrap;gap:8px}.analytics-legend span{display:flex;align-items:center;gap:4px;font-size:9px}.analytics-legend i{width:8px;height:8px;border-radius:50%;background:var(--legend-color)}.analytics-pdf-chart{display:block;width:100%;height:250px;object-fit:contain}.analytics-events{margin-top:8px;border-top:1px solid #d5e0d8}.analytics-events p,.analytics-events li{font-size:9px;line-height:1.45}.analytics-events ul{padding-left:18px}@media print{body{margin:12mm}.analytics-card,.summary-card,.analytics-device-stat{break-inside:avoid}.analytics-grid{gap:7px}}@media(max-width:700px){.analytics-pdf-summary,.analytics-device-summary,.analytics-grid{grid-template-columns:1fr}.analytics-card-wide{grid-column:auto}}
           </style><h1>Relatório de análises fotovoltaicas</h1><div class="meta"><b>Usuário:</b> ${escapeHtml(user?.nome || "")} (${escapeHtml(user?.email || "")})<br><b>Equipamentos:</b> ${escapeHtml(devicesLabel || "Nenhum equipamento") }<br><b>Período:</b> ${escapeHtml(appliedFilters.start)} ${escapeHtml(appliedFilters.startTime)} a ${escapeHtml(appliedFilters.end)} ${escapeHtml(appliedFilters.endTime)}<br><b>Agrupar por:</b> ${escapeHtml(groupLabel)}<br><b>Gráficos:</b> ${selectedGraphs.size}<br><b>Gerado em:</b> ${escapeHtml(generatedAt)}</div><h2>Indicadores</h2><div class="analytics-pdf-summary">${indicators}</div>${deviceStats ? `<h2>Resumo por equipamento</h2><div class="analytics-device-summary">${deviceStats}</div>` : ""}<h2>Gráficos selecionados</h2><div class="analytics-grid">${graphCards}</div><script>window.onload=()=>window.print()<\/script></html>`);
         win.document.close();

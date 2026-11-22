@@ -99,7 +99,7 @@ export function drawPowerChart(canvas, emptyElement, records) {
     for (let index = 0; index <= 3; index++) {
         const y = top + plotHeight * index / 3;
         const value = max - (max - min) * index / 3;
-        context.strokeStyle = light ? "#d7e1da" : "#293a31";
+        context.strokeStyle = light ? "#d7e1da" : "#3c392e";
         context.beginPath(); context.moveTo(left, y); context.lineTo(width - right, y); context.stroke();
         context.fillStyle = light ? "#53645a" : "#94a69a";
         context.fillText(formatNumber(value, 1), left - 8, y);
@@ -115,8 +115,8 @@ export function drawPowerChart(canvas, emptyElement, records) {
     })));
 
     const gradient = context.createLinearGradient(0, top, 0, top + plotHeight);
-    gradient.addColorStop(0, light ? "rgba(35,125,69,0.22)" : "rgba(141,224,167,0.26)");
-    gradient.addColorStop(1, light ? "rgba(35,125,69,0.01)" : "rgba(141,224,167,0.01)");
+    gradient.addColorStop(0, light ? "rgba(154,109,0,0.22)" : "rgba(244,197,66,0.26)");
+    gradient.addColorStop(1, light ? "rgba(154,109,0,0.01)" : "rgba(244,197,66,0.01)");
     context.beginPath();
     context.moveTo(points[0].x, top + plotHeight);
     points.forEach((point) => context.lineTo(point.x, point.y));
@@ -127,7 +127,7 @@ export function drawPowerChart(canvas, emptyElement, records) {
 
     context.beginPath();
     points.forEach((point, index) => index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y));
-    context.strokeStyle = light ? "#237d45" : "#8de0a7";
+    context.strokeStyle = light ? "#8a6500" : "#f4c542";
     context.lineWidth = 2.5;
     context.lineJoin = "round";
     context.lineCap = "round";
@@ -156,8 +156,8 @@ export function drawAnalyticsChart(canvas, graph) {
     const labels = graph.labels || [];
     const series = graph.series || [];
     const palette = document.documentElement.dataset.theme === "light"
-        ? ["#237d45", "#2367a8", "#ad5a17", "#8141a5", "#b23242", "#00838f"]
-        : ["#8de0a7", "#74b7ff", "#ffc477", "#c794ee", "#ff8994", "#5dd5dc"];
+        ? ["#8a6500", "#2367a8", "#ad5a17", "#8141a5", "#b23242", "#00838f"]
+        : ["#f4c542", "#74b7ff", "#ffc477", "#c794ee", "#ff8994", "#5dd5dc"];
     const isNumeric = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
     const values = series.flatMap((item) => item.data || []).filter(isNumeric).map(Number);
     context.font = "10px system-ui";
@@ -182,7 +182,7 @@ export function drawAnalyticsChart(canvas, graph) {
         const allMax = Math.max(1e-9, ...values);
         for (let index = 0; index <= 4; index++) {
             const x = left + plotWidth * index / 4;
-            context.strokeStyle = document.documentElement.dataset.theme === "light" ? "#d7e1da" : "#293a31";
+            context.strokeStyle = document.documentElement.dataset.theme === "light" ? "#d7e1da" : "#3c392e";
             context.beginPath(); context.moveTo(x, top); context.lineTo(x, height - bottom); context.stroke();
             context.textAlign = "center"; context.textBaseline = "top";
             context.fillText(formatNumber(allMax * index / 4, 1), x, height - 10);
@@ -217,7 +217,7 @@ export function drawAnalyticsChart(canvas, graph) {
     for (let index = 0; index <= 4; index++) {
         const y = top + plotHeight * index / 4;
         const value = max - (max - min) * index / 4;
-        context.strokeStyle = document.documentElement.dataset.theme === "light" ? "#d7e1da" : "#293a31";
+        context.strokeStyle = document.documentElement.dataset.theme === "light" ? "#d7e1da" : "#3c392e";
         context.beginPath(); context.moveTo(left, y); context.lineTo(width - right, y); context.stroke();
         context.fillStyle = document.documentElement.dataset.theme === "light" ? "#53645a" : "#94a69a";
         context.textAlign = "right"; context.textBaseline = "middle";

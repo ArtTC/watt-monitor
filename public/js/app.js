@@ -3,7 +3,6 @@ import { navigate, resolveRoute, startRouter } from "./router.js";
 import { renderAppLayout, bindLogout } from "./components/layout.js";
 import { renderLogin } from "./pages/login.js";
 import { renderRegister } from "./pages/register.js";
-import { mountDashboard } from "./pages/dashboard.js";
 import { mountDevices } from "./pages/devices.js";
 import { mountDeviceDetail } from "./pages/device-detail.js";
 import { mountReports } from "./pages/reports.js";
@@ -64,21 +63,13 @@ async function renderProtectedScreen(route, sequence) {
 
     if (sequence !== renderSequence) return;
 
-    const activePage = route.name === "devices" || route.name === "device-detail" ? "devices" : route.name === "reports" ? "reports" : route.name === "analytics" ? "analytics" : "dashboard";
+    const activePage = route.name === "reports" ? "reports" : route.name === "analytics" ? "analytics" : "dashboard";
     app.innerHTML = renderAppLayout(result.usuario, activePage, `<div class="empty">Carregando...</div>`);
     bindLogout(logout);
     const content = document.getElementById("page-content");
 
     try {
-        if (route.name === "dashboard") {
-            await mountDashboard(content);
-            stopRefresh();
-            refreshTimer = setInterval(async () => {
-                if (resolveRoute().name !== "dashboard") return;
-                try { await mountDashboard(content); }
-                catch (error) { handlePageError(error); }
-            }, 5000);
-        } else if (route.name === "devices") {
+        if (route.name === "dashboard" || route.name === "devices") {
             await mountDevices(content);
         } else if (route.name === "device-detail") {
             await mountDeviceDetail(content, route.mac);

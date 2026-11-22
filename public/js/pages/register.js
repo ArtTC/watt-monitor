@@ -5,8 +5,7 @@ export function renderRegister(container, { onAuthenticated, onLogin }) {
     container.innerHTML = `
       <main class="shell auth-shell">
         <section class="auth-card">
-          <div class="theme-auth">${renderThemeToggle()}</div>
-          <div class="brand auth-brand"><div class="brand-mark" aria-hidden="true">☀</div><div><h1>Medidor Solar</h1><p>Monitoramento fotovoltaico</p></div></div>
+          <div class="auth-header"><div class="brand auth-brand"><div class="brand-mark"><img src="/watt-monitor-icon.svg" alt=""></div><div><h1>Watt Monitor</h1><p>Monitoramento fotovoltaico</p></div></div><div class="theme-auth">${renderThemeToggle()}</div></div>
           <div class="eyebrow">Nova conta</div>
           <h2>Crie seu acesso</h2>
           <p class="auth-copy">Cadastre-se para vincular seus ESP32 e acompanhar a geração solar.</p>

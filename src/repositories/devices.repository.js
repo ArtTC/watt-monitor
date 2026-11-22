@@ -41,7 +41,7 @@ const deletedListStatement = db.prepare(`SELECT id, esp_id, nome, criado_em, rem
 const removeStatement = db.prepare("UPDATE dispositivos SET removido_em = ? WHERE esp_id = ? AND usuario_id = ? AND removido_em IS NULL");
 const restoreStatement = db.prepare("UPDATE dispositivos SET removido_em = NULL WHERE esp_id = ? AND usuario_id = ? AND removido_em IS NOT NULL");
 const insertMacStatement = db.prepare("INSERT INTO dispositivo_macs (mac, dispositivo_id, criado_em) VALUES (?, ?, ?)");
-const updateCurrentMacStatement = db.prepare("UPDATE dispositivos SET esp_id = ? WHERE id = ? AND esp_id = ? AND removido_em IS NULL");
+const updateCurrentMacStatement = db.prepare("UPDATE dispositivos SET esp_id = ?, nome = ? WHERE id = ? AND esp_id = ? AND removido_em IS NULL");
 const disableOldMacStatement = db.prepare("UPDATE dispositivo_macs SET aceita_medicoes = 0 WHERE mac = ? AND dispositivo_id = ?");
 const enableNewMacStatement = db.prepare(`INSERT INTO dispositivo_macs (mac, dispositivo_id, criado_em, aceita_medicoes) VALUES (?, ?, ?, 1)
     ON CONFLICT(mac) DO UPDATE SET aceita_medicoes = 1 WHERE dispositivo_macs.dispositivo_id = excluded.dispositivo_id`);
@@ -52,11 +52,11 @@ module.exports = {
     listDeletedByUser: (userId) => deletedListStatement.all(userId),
     remove: (mac, userId, removedAt) => removeStatement.run(removedAt, mac, userId),
     restore: (mac, userId) => restoreStatement.run(mac, userId),
-    updateMac({ deviceId, oldMac, newMac, changedAt }) {
+    updateMac({ deviceId, oldMac, newMac, name, changedAt }) {
         db.exec("BEGIN IMMEDIATE");
         try {
-            const update = updateCurrentMacStatement.run(newMac, deviceId, oldMac);
-            if (!Number(update.changes)) throw new Error("O MAC atual do dispositivo mudou durante a edição.");
+            const update = updateCurrentMacStatement.run(newMac, name, deviceId, oldMac);
+            if (!Number(update.changes)) throw new Error("O MAC atual do equipamento mudou durante a edição.");
             disableOldMacStatement.run(oldMac, deviceId);
             enableNewMacStatement.run(newMac, deviceId, changedAt);
             db.exec("COMMIT");
