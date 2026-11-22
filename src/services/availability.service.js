@@ -1,4 +1,4 @@
-const { groupByDevice, chart, round, bucketFor } = require("./analytics.helpers");
+const { groupByDevice, chart, round, bucketFor, intervalName } = require("./analytics.helpers");
 
 const EXPECTED_SECONDS = 5;
 const INTERRUPTION_SECONDS = EXPECTED_SECONDS * 2;
@@ -35,7 +35,8 @@ function bucketWindows(periodStart, periodEnd, aggregation, timezoneOffsetMinute
         if (windows.length && cursor >= end) break;
         const local = new Date(cursor - timezoneOffsetMinutes * 60000);
         const year = local.getUTCFullYear(), month = local.getUTCMonth(), day = local.getUTCDate(), hour = local.getUTCHours();
-        const nextLocal = aggregation === "hour" ? Date.UTC(year, month, day, hour + 1)
+        const nextLocal = aggregation === "minute" ? Date.UTC(year, month, day, hour, local.getUTCMinutes() + 1)
+            : aggregation === "hour" ? Date.UTC(year, month, day, hour + 1)
             : aggregation === "month" ? Date.UTC(year, month + 1, 1)
                 : Date.UTC(year, month, day + 1);
         const next = nextLocal + timezoneOffsetMinutes * 60000;
@@ -50,7 +51,7 @@ function generate(rows, id, periodStart, periodEnd, aggregation = "day", knownDe
     const devices = collect(rows, periodStart, periodEnd, knownDevices);
     const windows = bucketWindows(periodStart, periodEnd, aggregation, timezoneOffsetMinutes);
     const labels = windows.map((window) => window.label);
-    const interval = { hour: "hora", day: "dia", month: "mês" }[aggregation] || "intervalo";
+    const interval = intervalName(aggregation);
 
     if (id === "availability-history") {
         const series = devices.map((device) => {

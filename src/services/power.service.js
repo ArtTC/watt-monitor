@@ -1,8 +1,23 @@
-const { groupByDevice, bucketFor, chart, sortedUnique, round } = require("./analytics.helpers");
+const { groupByDevice, bucketFor, intervalName, chart, sortedUnique, round } = require("./analytics.helpers");
 
 function generate(rows, id, aggregation, knownDevices = [], timezoneOffsetMinutes = 0) {
     const devices = groupByDevice(rows, knownDevices);
-    const interval = { hour: "hora", day: "dia", month: "mês" }[aggregation] || "intervalo";
+    const interval = intervalName(aggregation);
+    if (id === "power-summary") {
+        const groups = new Map();
+        for (const row of rows) {
+            const label = bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes);
+            if (!groups.has(label)) groups.set(label, []);
+            groups.get(label).push(Number(row.potencia));
+        }
+        const labels = sortedUnique([...groups.keys()]);
+        const stats = [
+            { name: "Média", value: (values) => values.reduce((sum, value) => sum + value, 0) / values.length },
+            { name: "Mínima", value: (values) => Math.min(...values) },
+            { name: "Máxima", value: (values) => Math.max(...values) }
+        ];
+        return { ...chart(id, labels, stats.map((stat) => ({ name: stat.name, data: labels.map((label) => stat.value(groups.get(label))) })), "line", "W"), titulo: `Potência média, mínima e máxima por ${interval}`, descricao: `Estatísticas de potência em cada intervalo de ${interval}.` };
+    }
     if (id === "power-time") {
         const labels = sortedUnique(rows.map((row) => bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes)));
         const displayLabels = labels.length > 900 ? labels.filter((_, index) => index % Math.ceil(labels.length / 900) === 0) : labels;

@@ -2,14 +2,17 @@ import { formatNumber } from "../api.js";
 
 const hoverStates = new WeakMap();
 
-function formatAxisLabel(value) {
+function formatAxisLabel(value, aggregation) {
     const label = String(value);
     let match = label.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (match) return `${match[3]}/${match[2]}/${match[1].slice(-2)}`;
     match = label.match(/^(\d{4})-(\d{2})$/);
     if (match) return `${match[2]}/${match[1].slice(-2)}`;
-    match = label.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):\d{2}(?::\d{2})?$/);
-    if (match) return `${match[3]}/${match[2]}/${match[1].slice(-2)} ${match[4]}`;
+    match = label.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})(?::\d{2})?$/);
+    if (match) {
+        const minute = aggregation === "minute" ? `:${match[5]}` : "";
+        return `${match[3]}/${match[2]}/${match[1].slice(-2)} ${match[4]}${minute}`;
+    }
     return label;
 }
 
@@ -227,7 +230,7 @@ export function drawAnalyticsChart(canvas, graph) {
                         ? pointerAngle >= normalizedStart && pointerAngle <= normalizedEnd
                         : pointerAngle >= normalizedStart || pointerAngle <= normalizedEnd;
                 },
-                text: `${formatAxisLabel(slice.label)} Â· ${formatNumber(slice.value)} ${graph.unidade || ""} (${formatNumber(slice.value / total * 100, 1)}%)`.trim()
+                text: `${formatAxisLabel(slice.label, graph.agrupamento)} Â· ${formatNumber(slice.value)} ${graph.unidade || ""} (${formatNumber(slice.value / total * 100, 1)}%)`.trim()
             });
             angle = endAngle;
         });
@@ -240,7 +243,7 @@ export function drawAnalyticsChart(canvas, graph) {
             context.fillStyle = colors[index % colors.length];
             context.fillRect(legendX, y - 4, 8, 8);
             context.fillStyle = document.documentElement.dataset.theme === "light" ? "#53645a" : "#94a69a";
-            const label = `${formatAxisLabel(slice.label)} · ${formatNumber(slice.value)}`;
+            const label = `${formatAxisLabel(slice.label, graph.agrupamento)} · ${formatNumber(slice.value)}`;
             context.textAlign = "left";
             context.fillText(label, legendX + 13, y, Math.max(20, legendWidth - 13));
         });
@@ -270,7 +273,7 @@ export function drawAnalyticsChart(canvas, graph) {
             const y = top + rowHeight * index;
             context.fillStyle = document.documentElement.dataset.theme === "light" ? "#53645a" : "#94a69a";
             context.textAlign = "right"; context.textBaseline = "middle";
-            context.fillText(formatAxisLabel(label), left - 8, y + rowHeight / 2, left - 14);
+            context.fillText(formatAxisLabel(label, graph.agrupamento), left - 8, y + rowHeight / 2, left - 14);
             if (graph.stacked) {
                 stackGroups.forEach((group, groupIndex) => {
                     let accumulated = 0;
@@ -286,7 +289,7 @@ export function drawAnalyticsChart(canvas, graph) {
                         const barWidth = Math.max(0, plotWidth * value / allMax);
                         context.fillStyle = colors[seriesIndex % colors.length];
                         context.fillRect(segmentX, barY, barWidth, h);
-                        hoverTargets.push({ x: segmentX, y: barY, width: barWidth, height: h, text: `${formatAxisLabel(label)} · ${item.name}: ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
+                        hoverTargets.push({ x: segmentX, y: barY, width: barWidth, height: h, text: `${formatAxisLabel(label, graph.agrupamento)} · ${item.name}: ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
                         accumulated += value;
                     });
                 });
@@ -301,7 +304,7 @@ export function drawAnalyticsChart(canvas, graph) {
                     context.fillStyle = colors[seriesIndex % colors.length];
                     const barY = y + rowHeight / 2 + offset - h / 2;
                     context.fillRect(left, barY, barWidth, h);
-                    hoverTargets.push({ x: left, y: barY, width: barWidth, height: h, text: `${formatAxisLabel(label)} · ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
+                    hoverTargets.push({ x: left, y: barY, width: barWidth, height: h, text: `${formatAxisLabel(label, graph.agrupamento)} · ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
                 });
             }
         });
@@ -344,7 +347,7 @@ export function drawAnalyticsChart(canvas, graph) {
                     const segmentHeight = Math.max(2, Math.abs(previousY - nextY));
                     context.fillStyle = colors[seriesIndex % colors.length];
                     context.fillRect(x, segmentY, Math.min(36, barWidth), segmentHeight);
-                    hoverTargets.push({ x, y: segmentY, width: Math.min(36, barWidth), height: segmentHeight, text: `${formatAxisLabel(label)} · ${item.name}: ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
+                    hoverTargets.push({ x, y: segmentY, width: Math.min(36, barWidth), height: segmentHeight, text: `${formatAxisLabel(label, graph.agrupamento)} · ${item.name}: ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
                     accumulated += value;
                 });
             });
@@ -362,7 +365,7 @@ export function drawAnalyticsChart(canvas, graph) {
             const barY = Math.min(y, baseline);
             const barHeight = Math.max(2, Math.abs(baseline - y));
             context.fillRect(x, barY, barWidth, barHeight);
-            hoverTargets.push({ x, y: barY, width: barWidth, height: barHeight, text: `${formatAxisLabel(labels[index])} · ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
+            hoverTargets.push({ x, y: barY, width: barWidth, height: barHeight, text: `${formatAxisLabel(labels[index], graph.agrupamento)} · ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
         }));
     } else {
         series.forEach((item, seriesIndex) => {
@@ -372,7 +375,7 @@ export function drawAnalyticsChart(canvas, graph) {
                 if (!isNumeric(raw)) { drawing = false; return; }
                 const value = Number(raw);
                 const point = { x: pointX(index), y: top + plotHeight - ((value - min) / (max - min || 1)) * plotHeight };
-                hoverTargets.push({ ...point, text: `${formatAxisLabel(labels[index])} · ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
+                hoverTargets.push({ ...point, text: `${formatAxisLabel(labels[index], graph.agrupamento)} · ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
                 if (!drawing) { context.moveTo(point.x, point.y); drawing = true; }
                 else context.lineTo(point.x, point.y);
             });
@@ -398,7 +401,7 @@ export function drawAnalyticsChart(canvas, graph) {
     context.textAlign = "center";
     labels.forEach((label, index) => {
         if (index % stride !== 0 && index !== labels.length - 1) return;
-        const compactLabel = formatAxisLabel(label);
+        const compactLabel = formatAxisLabel(label, graph.agrupamento);
         const shown = compactLabel.length > 15 ? `${compactLabel.slice(0, 13)}…` : compactLabel;
         context.fillText(shown, pointX(index), height - bottom + 8, Math.max(30, plotWidth / 7));
     });

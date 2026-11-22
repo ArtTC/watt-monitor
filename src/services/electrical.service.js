@@ -1,4 +1,4 @@
-const { groupByDevice, bucketFor, chart, sortedUnique, round } = require("./analytics.helpers");
+const { groupByDevice, bucketFor, intervalName, chart, sortedUnique, round } = require("./analytics.helpers");
 
 function aggregate(rows, key, mode, aggregation, timezoneOffsetMinutes = 0) {
     const grouped = new Map();
@@ -80,7 +80,20 @@ function generate(rows, id, aggregation, knownDevices = [], timezoneOffsetMinute
     const voltage = id.startsWith("voltage");
     const metric = voltage ? "tensao" : "corrente";
     const unit = voltage ? "V" : "A";
-    const interval = { hour: "hora", day: "dia", month: "mês" }[aggregation] || "intervalo";
+    const interval = intervalName(aggregation);
+    if (id === "voltage-summary" || id === "current-summary") {
+        const labels = sortedUnique(rows.map((row) => bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes)));
+        const values = aggregate(rows, metric, "avg", aggregation, timezoneOffsetMinutes);
+        const minima = aggregate(rows, metric, "min", aggregation, timezoneOffsetMinutes);
+        const maxima = aggregate(rows, metric, "max", aggregation, timezoneOffsetMinutes);
+        const name = voltage ? "Tensão" : "Corrente";
+        const series = [
+            { name: "Média", values },
+            { name: "Mínima", values: minima },
+            { name: "Máxima", values: maxima }
+        ].map((item) => ({ name: item.name, data: labels.map((label) => item.values.get(label) ?? null) }));
+        return { ...chart(id, labels, series, "line", unit), titulo: `${name} média, mínima e máxima por ${interval}`, descricao: `Estatísticas de ${name.toLowerCase()} em cada intervalo de ${interval}.` };
+    }
     if (id === `${voltage ? "voltage" : "current"}-time`) return perDeviceTimeChart(rows, metric, id, unit, aggregation, knownDevices, timezoneOffsetMinutes);
     if (id === `${voltage ? "voltage" : "current"}-daily-average`) {
         const devices = groupByDevice(rows, knownDevices);

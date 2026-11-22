@@ -3,11 +3,10 @@ import { drawAnalyticsChart } from "../components/chart.js";
 import { renderDevicePicker, bindDevicePicker } from "../components/device-picker.js";
 
 const categories = [
-    { id: "energia", name: "Energia", graphs: [["energy-day", "Energia gerada por dia"], ["energy-month", "Energia gerada por mês"], ["energy-cumulative", "Energia acumulada no período"], ["energy-daily-comparison", "Comparação de energia entre dias"], ["energy-hourly-profile", "Perfil de geração por horário"]] },
-    { id: "potencia", name: "Potência", graphs: [["power-time", "Potência ao longo do tempo"], ["power-hourly-average", "Potência média por horário"], ["power-daily-max", "Potência máxima por dia"], ["power-period-comparison", "Comparação de potência entre períodos"], ["power-variation", "Histórico de variações de potência"]] },
-    { id: "tensao", name: "Tensão", graphs: [["voltage-time", "Tensão ao longo do tempo"], ["voltage-daily-average", "Tensão média por dia"], ["voltage-range", "Tensão mínima e máxima por período"], ["voltage-distribution", "Distribuição das medições de tensão"], ["voltage-oscillation", "Oscilações de tensão"]] },
-    { id: "corrente", name: "Corrente", graphs: [["current-time", "Corrente ao longo do tempo"], ["current-daily-average", "Corrente média por dia"], ["current-range", "Corrente mínima e máxima por período"], ["current-distribution", "Distribuição das medições de corrente"], ["current-oscillation", "Oscilações de corrente"]] },
-    { id: "comparacao", name: "Comparação entre equipamentos", graphs: [["compare-energy", "Energia produzida por equipamento"], ["compare-power-avg", "Potência média por equipamento"], ["compare-power-max", "Potência máxima por equipamento"], ["compare-hour-profile", "Perfil horário por equipamento"], ["compare-voltage", "Tensão entre equipamentos"], ["compare-current", "Corrente entre equipamentos"]] },
+    { id: "energia", name: "Energia", graphs: [["energy-day", "Energia gerada por intervalo"], ["energy-cumulative", "Energia acumulada no período"]] },
+    { id: "potencia", name: "Potência", graphs: [["power-summary", "Potência média, mínima e máxima"], ["power-variation", "Histórico de variações de potência"]] },
+    { id: "tensao", name: "Tensão", graphs: [["voltage-summary", "Tensão média, mínima e máxima"], ["voltage-distribution", "Distribuição das medições de tensão"], ["voltage-oscillation", "Oscilações de tensão"]] },
+    { id: "corrente", name: "Corrente", graphs: [["current-summary", "Corrente média, mínima e máxima"], ["current-distribution", "Distribuição das medições de corrente"], ["current-oscillation", "Oscilações de corrente"]] },
     { id: "anomalias", name: "Diagnóstico e anomalias", graphs: [["anomaly-power-drop", "Quedas bruscas de potência"], ["anomaly-voltage-change", "Alterações significativas de tensão"], ["anomaly-current-change", "Alterações significativas de corrente"], ["anomaly-power-oscillation", "Oscilações excessivas de potência"], ["anomaly-repeated", "Leituras repetidas"], ["anomaly-inconsistency", "Inconsistências entre grandezas elétricas"]] },
     { id: "disponibilidade", name: "Disponibilidade", graphs: [["availability-history", "Histórico de comunicação"], ["availability-percent", "Disponibilidade por período"], ["availability-interruptions", "Quantidade de interrupções"]] }
 ];
@@ -15,9 +14,8 @@ const allGraphIds = categories.flatMap((category) => category.graphs.map(([id]) 
 const presets = [
     ["full", "Análise completa", allGraphIds],
     ["energy", "Análise de energia", categories[0].graphs.map(([id]) => id)],
-    ["electrical", "Análise elétrica", ["power-time", "power-hourly-average", "power-daily-max", "voltage-time", "voltage-daily-average", "voltage-range", "current-time", "current-daily-average", "current-range"]],
+    ["electrical", "Análise elétrica", ["power-summary", "voltage-summary", "current-summary"]],
     ["anomalies", "Diagnóstico de anomalias", categories.find((item) => item.id === "anomalias").graphs.map(([id]) => id)],
-    ["comparison", "Comparação entre equipamentos", categories.find((item) => item.id === "comparacao").graphs.map(([id]) => id)],
     ["availability", "Disponibilidade", categories.find((item) => item.id === "disponibilidade").graphs.map(([id]) => id)]
 ];
 const palette = ["#8a6500", "#2367a8", "#ad5a17", "#8141a5", "#b23242", "#00838f"];
@@ -52,6 +50,7 @@ export async function mountAnalytics(container, user) {
     let loading = false;
     let calculationSequence = 0;
     const chartTypes = new Map();
+    const defaultChartType = () => appliedFilters?.agrupamento === "minute" ? "hbar" : "line";
 
     container.innerHTML = `<div class="page-heading"><div><div class="eyebrow">Exploração de dados</div><h2>Análises</h2><p>Monte suas visualizações e explore o comportamento dos equipamentos fotovoltaicos.</p></div></div>
       <section class="panel analytics-filter-panel" id="analytics-filters">
@@ -60,7 +59,7 @@ export async function mountAnalytics(container, user) {
         <div class="field"><label for="analytics-start-time">Hora inicial</label><input id="analytics-start-time" type="time" value="00:00"></div>
         <div class="field"><label for="analytics-end">Data final</label><input id="analytics-end" type="date" value="${localDate(today)}" max="${localDate(today)}"></div>
         <div class="field"><label for="analytics-end-time">Hora final</label><input id="analytics-end-time" type="time" value="23:59"></div>
-        <div class="field"><label for="analytics-group">Agrupar por</label><select id="analytics-group"><option value="hour" selected>Hora</option><option value="day">Dia</option><option value="month">Mês</option></select></div></div>
+        <div class="field"><label for="analytics-group">Agrupar por</label><select id="analytics-group"><option value="minute">Minuto</option><option value="hour" selected>Hora</option><option value="day">Dia</option><option value="month">Mês</option></select></div></div>
         <div id="analytics-notice" class="notice" role="alert"></div><div class="form-actions"><button class="btn btn-primary" id="analytics-apply" type="button">Aplicar filtros</button><button class="btn" id="analytics-clear-filters" type="button">Limpar filtros</button></div></section>
       <section class="panel analytics-builder"><div class="section-head"><div><h3>Gráficos disponíveis</h3><p class="section-sub">Selecione vários gráficos e combine-os na mesma tela.</p></div><div class="page-actions"><button class="btn" id="analytics-expand" type="button">Expandir categorias</button><button class="btn" id="analytics-collapse" type="button">Recolher categorias</button></div></div>
         <div class="field analytics-mode-field"><label for="analytics-mode">Tipo de análise</label><select id="analytics-mode"><option value="custom">Análise personalizada</option><optgroup label="Análises prontas">${presets.map(([id, label]) => `<option value="${id}">${label}</option>`).join("")}</optgroup></select><p class="section-sub">Escolha uma análise pronta ou personalize os gráficos e categorias abaixo.</p></div>
@@ -105,14 +104,14 @@ export async function mountAnalytics(container, user) {
                 const names = selectedDevices.map((device) => `${device.nome}`).join(", ") || "Todos os equipamentos";
                 const legend = graph.series.length > 1 ? `<div class="analytics-legend">${graph.series.map((series, index) => `<span><i style="--legend-color:${palette[index % palette.length]}"></i>${escapeHtml(series.name)}</span>`).join("")}</div>` : "";
                 const details = graph.id.startsWith("anomaly-") ? `<div class="analytics-events"><p>${escapeHtml(graph.note || "Indicações estatísticas exploratórias.")} ${graph.total > graph.details.length ? `Exibindo ${graph.details.length} de ${graph.total}.` : ""} ${graph.total ? `${graph.total} indicação(ões).` : "Nenhuma indicação neste período."}</p><ul>${graph.details.map((event) => `<li><strong>${escapeHtml(event.equipamento)}</strong><span>${escapeHtml(new Date(event.data_hora).toLocaleString("pt-BR"))} — ${escapeHtml(event.descricao)} (${formatNumber(event.valor)})</span></li>`).join("") || `<li>Nenhuma ocorrência suspeita para os critérios selecionados.</li>`}</ul></div>` : "";
-                const chartType = chartTypes.get(graph.id) || "line";
+                const chartType = chartTypes.get(graph.id) || defaultChartType();
                 const chartHeight = chartType === "hbar" ? Math.min(560, Math.max(250, graph.labels.length * 28 + 30)) : 260;
                 return `<article class="analytics-card ${graph.labels.length > 20 ? "analytics-card-wide" : ""}" data-analytics-card="${graph.id}"><div class="analytics-card-head"><div><h3>${escapeHtml(graph.titulo)}</h3><p>${escapeHtml(graph.descricao)}</p></div><button class="btn btn-quiet analytics-remove" data-remove-graph="${graph.id}" type="button" aria-label="Remover ${escapeAttr(graph.titulo)}">×</button></div><label class="analytics-chart-type-control">Tipo de gráfico<select data-chart-type="${graph.id}" aria-label="Tipo de gráfico para ${escapeAttr(graph.titulo)}"><option value="line" ${chartType === "line" ? "selected" : ""}>Linha</option><option value="bar" ${chartType === "bar" ? "selected" : ""}>Coluna</option><option value="hbar" ${chartType === "hbar" ? "selected" : ""}>Barra</option><option value="pie" ${chartType === "pie" ? "selected" : ""}>Pizza</option><option value="doughnut" ${chartType === "doughnut" ? "selected" : ""}>Rosca</option></select></label><div class="analytics-meta"><span><b>Equipamento:</b> ${escapeHtml(names)}</span><span><b>Período:</b> ${escapeHtml(period)}</span><span><b>Unidade:</b> ${escapeHtml(graph.unidade)}</span></div>${legend}<div class="analytics-canvas-wrap" style="height:${chartHeight}px"><canvas class="analytics-chart" data-chart-id="${graph.id}" aria-label="${escapeAttr(graph.titulo)}"></canvas></div>${details}</article>`;
             });
             target.innerHTML = `<div class="analytics-grid">${cards.join("") || `<div class="empty">Os cálculos não retornaram gráficos para esta seleção.</div>`}</div>`;
             target.querySelectorAll(".analytics-chart").forEach((canvas) => {
                 const graph = response.graficos[canvas.dataset.chartId];
-                drawAnalyticsChart(canvas, { ...graph, type: chartTypes.get(graph.id) || "line" });
+                drawAnalyticsChart(canvas, { ...graph, type: chartTypes.get(graph.id) || defaultChartType() });
             });
             target.querySelectorAll("[data-chart-type]").forEach((select) => select.addEventListener("change", () => {
                 const graph = response?.graficos[select.dataset.chartType];
@@ -217,6 +216,7 @@ export async function mountAnalytics(container, user) {
     document.getElementById("analytics-clear-selection").addEventListener("click", () => { selectedGraphs.clear(); document.getElementById("analytics-mode").value = "custom"; syncGraphChecks(); drawCards(); }, { signal });
     document.getElementById("analytics-apply").addEventListener("click", () => {
         appliedFilters = readFilters();
+        selectedGraphs.forEach((id) => chartTypes.set(id, defaultChartType()));
         hasAppliedFilters = true;
         document.getElementById("analytics-view").hidden = false;
         calculate();
@@ -265,7 +265,7 @@ export async function mountAnalytics(container, user) {
         const deviceStats = deviceSummaryCopy.innerHTML;
         const selectedDevices = devices.filter((device) => appliedFilters.esp_ids.includes(device.esp_id));
         const devicesLabel = selectedDevices.map((device) => `${device.nome}`).join(", ");
-        const groupLabel = { hour: "Hora", day: "Dia", month: "Mês" }[appliedFilters.agrupamento] || appliedFilters.agrupamento;
+        const groupLabel = { minute: "Minuto", hour: "Hora", day: "Dia", month: "Mês" }[appliedFilters.agrupamento] || appliedFilters.agrupamento;
         const generatedAt = new Date().toLocaleString("pt-BR");
         win.document.write(`<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Análises · Watt Monitor</title><style>
           *{box-sizing:border-box}@page{size:A4 landscape;margin:12mm}body{margin:24px;color:#17231c;font:12px Arial,sans-serif}h1{margin:0 0 4px;color:#176f39;font-size:24px}h2{margin:20px 0 10px;font-size:17px}.meta{margin:12px 0 18px;line-height:1.7;color:#39483e}.analytics-pdf-summary{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}.summary-card,.analytics-device-stat,.analytics-card{break-inside:avoid;border:1px solid #d5e0d8;border-radius:10px;padding:10px;background:#fff}.summary-label{color:#52645a;font-size:10px}.summary-value{margin-top:5px;font-size:17px;font-weight:bold}.analytics-device-summary{margin:8px 0}.analytics-device-summary .section-head{display:flex;justify-content:space-between;gap:10px;margin-bottom:10px}.analytics-device-summary h3{margin:0;font-size:14px}.analytics-device-summary .section-sub,.analytics-device-summary .period{color:#52645a;font-size:10px}.analytics-device-table{width:100%;border-collapse:collapse;font-size:10px}.analytics-device-table th,.analytics-device-table td{padding:7px 8px;border-bottom:1px solid #d5e0d8;text-align:left}.analytics-device-filter{border:0;padding:0;background:none;color:#176f39;font-weight:bold}.analytics-device-stat span,.analytics-meta,.analytics-card-head p,.analytics-events p{color:#52645a}.analytics-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.analytics-card-wide{grid-column:auto}.analytics-card-head{display:flex;justify-content:space-between;gap:8px}.analytics-card-head h3{margin:0;font-size:14px}.analytics-card-head p{margin:4px 0;font-size:10px}.analytics-meta{display:grid;gap:3px;margin:7px 0;font-size:9px}.analytics-legend{display:flex;flex-wrap:wrap;gap:8px}.analytics-legend span{display:flex;align-items:center;gap:4px;font-size:9px}.analytics-legend i{width:8px;height:8px;border-radius:50%;background:var(--legend-color)}.analytics-pdf-chart{display:block;width:100%;height:auto;max-height:560px;object-fit:contain}.analytics-events{margin-top:8px;border-top:1px solid #d5e0d8}.analytics-events p,.analytics-events li{font-size:9px;line-height:1.45}.analytics-events ul{padding-left:18px}@media print{body{margin:12mm}.analytics-card,.summary-card,.analytics-device-stat{break-inside:avoid}.analytics-grid{gap:7px}}@media(max-width:700px){.analytics-pdf-summary,.analytics-device-summary,.analytics-grid{grid-template-columns:1fr}.analytics-card-wide{grid-column:auto}}
@@ -273,7 +273,7 @@ export async function mountAnalytics(container, user) {
         win.document.close();
     }, { signal });
     document.getElementById("analytics-back-to-filters").addEventListener("click", () => document.getElementById("analytics-filters").scrollIntoView({ behavior: "smooth", block: "start" }), { signal });
-    window.addEventListener("themechange", () => container.querySelectorAll(".analytics-chart").forEach((canvas) => response?.graficos[canvas.dataset.chartId] && drawAnalyticsChart(canvas, response.graficos[canvas.dataset.chartId])), { signal });
-    window.addEventListener("resize", () => container.querySelectorAll(".analytics-chart").forEach((canvas) => response?.graficos[canvas.dataset.chartId] && drawAnalyticsChart(canvas, response.graficos[canvas.dataset.chartId])), { signal });
+    window.addEventListener("themechange", () => container.querySelectorAll(".analytics-chart").forEach((canvas) => response?.graficos[canvas.dataset.chartId] && drawAnalyticsChart(canvas, { ...response.graficos[canvas.dataset.chartId], type: chartTypes.get(canvas.dataset.chartId) || defaultChartType() })), { signal });
+    window.addEventListener("resize", () => container.querySelectorAll(".analytics-chart").forEach((canvas) => response?.graficos[canvas.dataset.chartId] && drawAnalyticsChart(canvas, { ...response.graficos[canvas.dataset.chartId], type: chartTypes.get(canvas.dataset.chartId) || defaultChartType() })), { signal });
     syncGraphChecks();
 }

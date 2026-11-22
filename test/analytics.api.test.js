@@ -70,21 +70,19 @@ test("análises autenticadas filtram por dispositivo e preservam Relatórios", a
     assert.equal(result.json.indicadores.quantidade_medicoes, 4);
     assert.equal(result.json.indicadores.quantidade_equipamentos, 2);
     assert.deepEqual(Object.keys(result.json.graficos).sort(), [...allGraphIds].sort());
-    assert.deepEqual(result.json.graficos["compare-power-avg"].labels, [day]);
-    assert.deepEqual(result.json.graficos["compare-power-avg"].series.map((series) => series.data), [[150], [45]]);
+    assert.deepEqual(result.json.graficos["power-summary"].labels, [day]);
+    assert.deepEqual(result.json.graficos["power-summary"].series.map((series) => series.data), [[97.5], [40], [200]]);
     assert.equal(result.json.indicadores.energia_wh, 0.271);
     const groupedEnergy = await request("/api/analises", "POST", owner, {
         ...body,
         agrupamento: "month",
-        graficos: ["energy-day", "energy-month", "energy-cumulative", "energy-daily-comparison", "energy-hourly-profile"]
+        graficos: ["energy-day", "energy-cumulative"]
     });
     assert.equal(groupedEnergy.status, 200);
     const monthLabel = day.slice(0, 7);
-    for (const id of ["energy-day", "energy-month", "energy-cumulative", "energy-daily-comparison", "energy-hourly-profile"]) {
+    for (const id of ["energy-day", "energy-cumulative"]) {
         assert.deepEqual(groupedEnergy.json.graficos[id].labels, [monthLabel]);
     }
-    assert.equal(groupedEnergy.json.graficos["energy-month"].titulo, "Energia total por mês");
-    assert.equal(groupedEnergy.json.graficos["energy-hourly-profile"].titulo, "Perfil de geração por mês");
     const offset = 180;
     const saoPauloRange = await request("/api/analises", "POST", owner, {
         ...body, fuso_minutos: offset,
@@ -93,10 +91,10 @@ test("análises autenticadas filtram por dispositivo e preservam Relatórios", a
         graficos: []
     });
     assert.equal(saoPauloRange.status, 200);
-    const oneDevice = await request("/api/analises", "POST", owner, { ...body, esp_ids: [macA], graficos: ["compare-power-avg"] });
-    assert.deepEqual(oneDevice.json.graficos["compare-power-avg"].labels, [day]);
-    assert.deepEqual(oneDevice.json.graficos["compare-power-avg"].series[0].data, [150]);
-    const outsidePeriod = await request("/api/analises", "POST", owner, { ...body, inicio_em: `${day}T11:00:00.000Z`, fim_em: `${day}T12:00:00.000Z`, graficos: ["power-time"] });
+    const oneDevice = await request("/api/analises", "POST", owner, { ...body, esp_ids: [macA], graficos: ["power-summary"] });
+    assert.deepEqual(oneDevice.json.graficos["power-summary"].labels, [day]);
+    assert.deepEqual(oneDevice.json.graficos["power-summary"].series.map((series) => series.data), [[150], [100], [200]]);
+    const outsidePeriod = await request("/api/analises", "POST", owner, { ...body, inicio_em: `${day}T11:00:00.000Z`, fim_em: `${day}T12:00:00.000Z`, graficos: ["power-summary"] });
     assert.equal(outsidePeriod.json.indicadores.quantidade_medicoes, 0);
     assert.equal((await request("/api/analises", "POST", owner, { ...body, esp_ids: [foreignMac] })).status, 404);
 

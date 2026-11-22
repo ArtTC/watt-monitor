@@ -17,9 +17,15 @@ function bucketFor(value, aggregation = "day", timezoneOffsetMinutes = 0) {
     const month = String(date.getUTCMonth() + 1).padStart(2, "0");
     const day = String(date.getUTCDate()).padStart(2, "0");
     const hour = String(date.getUTCHours()).padStart(2, "0");
+    const minute = String(date.getUTCMinutes()).padStart(2, "0");
     if (aggregation === "month") return `${y}-${month}`;
+    if (aggregation === "minute") return `${y}-${month}-${day} ${hour}:${minute}`;
     if (aggregation === "hour") return `${y}-${month}-${day} ${hour}:00`;
     return `${y}-${month}-${day}`;
+}
+
+function intervalName(aggregation) {
+    return ({ minute: "minuto", hour: "hora", day: "dia", month: "m\u00EAs" })[aggregation] || "intervalo";
 }
 
 function localTimestamp(value, timezoneOffsetMinutes = 0) {
@@ -37,4 +43,4 @@ function chart(id, labels, series, type = "line", unit = "") {
 
 function sortedUnique(values) { return [...new Set(values)].sort((a, b) => a.localeCompare(b)); }
 
-module.exports = { groupByDevice, bucketFor, localTimestamp, round, chart, sortedUnique };
+module.exports = { groupByDevice, bucketFor, intervalName, localTimestamp, round, chart, sortedUnique };

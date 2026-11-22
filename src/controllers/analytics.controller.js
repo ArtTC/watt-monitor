@@ -39,7 +39,8 @@ function run(req, res) {
             return res.status(400).json({ sucesso: false, mensagem: "As datas e horas devem permanecer dentro do período informado." });
         }
         const aggregation = req.body.agrupamento || "hour";
-        if (!["hour", "day", "month"].includes(aggregation)) return res.status(400).json({ sucesso: false, mensagem: "Agrupamento inválido." });
+        if (!["minute", "hour", "day", "month"].includes(aggregation)) return res.status(400).json({ sucesso: false, mensagem: "Agrupamento inválido." });
+        if (aggregation === "minute" && endTimestamp - startTimestamp > 31 * 86400000) return res.status(400).json({ sucesso: false, mensagem: "Agrupamento por minuto limitado a 31 dias." });
         const graphIds = Array.isArray(req.body.graficos) ? [...new Set(req.body.graficos)] : [];
         if (graphIds.length > allGraphIds.length || graphIds.some((id) => !allGraphIds.includes(id))) {
             return res.status(400).json({ sucesso: false, mensagem: "A seleção de gráficos contém opções inválidas." });

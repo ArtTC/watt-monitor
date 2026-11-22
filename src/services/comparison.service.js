@@ -1,9 +1,9 @@
 const energy = require("./energy.service");
-const { groupByDevice, bucketFor, chart, round, sortedUnique } = require("./analytics.helpers");
+const { groupByDevice, bucketFor, intervalName, chart, round, sortedUnique } = require("./analytics.helpers");
 
 function generate(rows, id, aggregation = "day", knownDevices = [], timezoneOffsetMinutes = 0) {
     const devices = groupByDevice(rows, knownDevices);
-    const interval = { hour: "hora", day: "dia", month: "mês" }[aggregation] || "intervalo";
+    const interval = intervalName(aggregation);
     const labels = sortedUnique(rows.map((row) => bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes)));
 
     if (id === "compare-energy") {

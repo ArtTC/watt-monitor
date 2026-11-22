@@ -8,6 +8,7 @@ const comparison = require("../src/services/comparison.service");
 const electrical = require("../src/services/electrical.service");
 const power = require("../src/services/power.service");
 const availability = require("../src/services/availability.service");
+const { allGraphIds } = require("../src/services/analytics.catalog");
 
 function row(deviceId, name, mac, dataHora, potencia, tensao = 100, corrente = 1) {
     return { device_id: deviceId, device_name: name, esp_id: mac, data_hora: dataHora, potencia, tensao, corrente };
@@ -117,8 +118,9 @@ test("gráficos de disponibilidade respeitam hora, dia e mês", () => {
     const devices = [{ id: 1, nome: "Painel A", esp_id: "AA:00" }];
     const start = "2026-01-31T23:59:45.000Z";
     const end = "2026-02-01T00:00:15.000Z";
-    const ids = ["availability-history", "availability-percent", "availability-gaps", "availability-interruptions", "availability-longest-gap"];
+    const ids = ["availability-history", "availability-percent", "availability-interruptions"];
     for (const [aggregation, expectedLabels] of [
+        ["minute", ["2026-01-31 23:59", "2026-02-01 00:00"]],
         ["hour", ["2026-01-31 23:00", "2026-02-01 00:00"]],
         ["day", ["2026-01-31", "2026-02-01"]],
         ["month", ["2026-01", "2026-02"]]
@@ -127,7 +129,7 @@ test("gráficos de disponibilidade respeitam hora, dia e mês", () => {
             const graph = availability.generate(points, id, start, end, aggregation, devices);
             assert.deepEqual(graph.labels, expectedLabels, id);
             assert.equal(graph.series[0].data.length, expectedLabels.length, id);
-            assert.match(graph.titulo, aggregation === "hour" ? /hora$/ : aggregation === "day" ? /dia$/ : /mês$/);
+            assert.match(graph.titulo, aggregation === "minute" ? /minuto$/ : aggregation === "hour" ? /hora$/ : aggregation === "day" ? /dia$/ : /mês$/);
         }
     }
     assert.deepEqual(availability.generate(points, "availability-history", start, end, "day", devices).series[0].data, [1, 2]);
@@ -197,4 +199,31 @@ test("gráficos de potência respeitam o agrupamento diário selecionado", () =>
     assert.deepEqual(comparisonBars.series[0].data, [150, 100]);
     assert.deepEqual(variation.labels, ["2026-01-01", "2026-01-02"]);
     assert.deepEqual(variation.series[0].data, [100, -50]);
+});
+
+test("resumos de potência, tensão e corrente agrupam média, mínima e máxima por minuto", () => {
+    const points = [
+        row(1, "Painel A", "AA:00", "2026-01-01T10:00:05.000Z", 10, 220, 1),
+        row(1, "Painel A", "AA:00", "2026-01-01T10:00:45.000Z", 30, 230, 3),
+        row(1, "Painel A", "AA:00", "2026-01-01T10:01:05.000Z", 20, 225, 2)
+    ];
+    const devices = [{ id: 1, nome: "Painel A", esp_id: "AA:00" }];
+    for (const [service, id, values] of [
+        [power, "power-summary", [10, 30, 20]],
+        [electrical, "voltage-summary", [220, 230, 225]],
+        [electrical, "current-summary", [1, 3, 2]]
+    ]) {
+        const graph = service.generate(points, id, "minute", devices);
+        assert.deepEqual(graph.labels, ["2026-01-01 10:00", "2026-01-01 10:01"]);
+        assert.deepEqual(graph.series.map((series) => series.data), [[(values[0] + values[1]) / 2, values[2]], [values[0], values[2]], [values[1], values[2]]]);
+    }
+});
+
+test("catálogo de análises remove gráficos ao longo do tempo e comparação entre equipamentos", () => {
+    assert.equal(allGraphIds.includes("power-time"), false);
+    assert.equal(allGraphIds.includes("current-time"), false);
+    assert.equal(allGraphIds.some((id) => id.startsWith("compare-")), false);
+    assert.equal(allGraphIds.includes("power-summary"), true);
+    assert.equal(allGraphIds.includes("voltage-summary"), true);
+    assert.equal(allGraphIds.includes("current-summary"), true);
 });

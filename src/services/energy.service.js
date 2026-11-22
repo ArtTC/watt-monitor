@@ -1,4 +1,4 @@
-const { groupByDevice, chart, sortedUnique, round } = require("./analytics.helpers");
+const { groupByDevice, chart, sortedUnique, round, intervalName } = require("./analytics.helpers");
 
 const MAX_INTEGRATION_GAP_SECONDS = 30;
 
@@ -16,7 +16,8 @@ function integrate(records, bucketType = "day", timezoneOffsetMinutes = 0) {
         while (cursor < end) {
             const date = new Date(cursor - offsetMilliseconds);
             let nextBoundary;
-            if (bucketType === "hour") nextBoundary = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours() + 1) + offsetMilliseconds;
+            if (bucketType === "minute") nextBoundary = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours(), date.getUTCMinutes() + 1) + offsetMilliseconds;
+            else if (bucketType === "hour") nextBoundary = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), date.getUTCHours() + 1) + offsetMilliseconds;
             else nextBoundary = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + 1) + offsetMilliseconds;
             const segmentEnd = Math.min(end, nextBoundary);
             const pStart = Number(previous.potencia) + (Number(current.potencia) - Number(previous.potencia)) * ((cursor - start) / (end - start));
@@ -24,9 +25,10 @@ function integrate(records, bucketType = "day", timezoneOffsetMinutes = 0) {
             const wh = ((pStart + pEnd) / 2) * ((segmentEnd - cursor) / 3600000);
             const keyDate = new Date(cursor - offsetMilliseconds);
             const day = keyDate.toISOString().slice(0, 10);
-            const key = bucketType === "hour"
-                ? `${day} ${String(keyDate.getUTCHours()).padStart(2, "0")}:00`
-                : bucketType === "month" ? day.slice(0, 7) : day;
+            const key = bucketType === "minute"
+                ? `${day} ${String(keyDate.getUTCHours()).padStart(2, "0")}:${String(keyDate.getUTCMinutes()).padStart(2, "0")}`
+                : bucketType === "hour" ? `${day} ${String(keyDate.getUTCHours()).padStart(2, "0")}:00`
+                    : bucketType === "month" ? day.slice(0, 7) : day;
             totals.set(key, (totals.get(key) || 0) + wh);
             cursor = segmentEnd;
         }
@@ -45,7 +47,7 @@ function totalEnergyWh(rows, knownDevices = [], timezoneOffsetMinutes = 0) {
 }
 
 function generate(rows, id, aggregation = "day", knownDevices = [], timezoneOffsetMinutes = 0) {
-    const interval = { hour: "hora", day: "dia", month: "mês" }[aggregation] || "intervalo";
+    const interval = intervalName(aggregation);
     const grouped = energyByDevice(rows, aggregation, knownDevices, timezoneOffsetMinutes);
     const labels = sortedUnique(grouped.flatMap((device) => [...device.energy.keys()]));
     if (["energy-day", "energy-month", "energy-daily-comparison"].includes(id)) {

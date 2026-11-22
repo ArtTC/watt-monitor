@@ -1,7 +1,6 @@
 const energyService = require("./energy.service");
 const electricalService = require("./electrical.service");
 const powerService = require("./power.service");
-const comparisonService = require("./comparison.service");
 const anomalyService = require("./anomaly.service");
 const availabilityService = require("./availability.service");
 const { groupByDevice, round } = require("./analytics.helpers");
@@ -35,10 +34,9 @@ function buildAnalytics({ rows, devices, graphIds, aggregation, start, end, time
         if (id.startsWith("energy-")) result = energyService.generate(rows, id, aggregation, devices, timezoneOffsetMinutes);
         else if (id.startsWith("power-")) result = powerService.generate(rows, id, aggregation, devices, timezoneOffsetMinutes);
         else if (id.startsWith("voltage-") || id.startsWith("current-")) result = electricalService.generate(rows, id, aggregation, devices, timezoneOffsetMinutes);
-        else if (id.startsWith("compare-")) result = comparisonService.generate(rows, id, aggregation, devices, timezoneOffsetMinutes);
         else if (id.startsWith("anomaly-")) result = anomalyService.generate(rows, id, devices, timezoneOffsetMinutes);
         else if (id.startsWith("availability-")) result = availabilityService.generate(rows, id, start, end, aggregation, devices, timezoneOffsetMinutes);
-        if (result) graphs[id] = { ...metaObject(id, meta), ...result };
+        if (result) graphs[id] = { ...metaObject(id, meta), ...result, agrupamento: aggregation };
     }
     return { indicadores: buildIndicators(rows, devices, timezoneOffsetMinutes), graficos: graphs };
 }
