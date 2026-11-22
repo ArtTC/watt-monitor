@@ -5,7 +5,7 @@ const categories = {
     corrente: ["current-time", "current-daily-average", "current-range", "current-distribution", "current-oscillation"],
     comparacao: ["compare-energy", "compare-power-avg", "compare-power-max", "compare-hour-profile", "compare-voltage", "compare-current"],
     anomalias: ["anomaly-power-drop", "anomaly-voltage-change", "anomaly-current-change", "anomaly-power-oscillation", "anomaly-repeated", "anomaly-inconsistency"],
-    disponibilidade: ["availability-history", "availability-percent", "availability-gaps", "availability-interruptions", "availability-longest-gap"]
+    disponibilidade: ["availability-history", "availability-percent", "availability-interruptions"]
 };
 
 const allGraphIds = Object.values(categories).flat();
@@ -43,10 +43,8 @@ const graphMeta = {
     "anomaly-repeated": ["Leituras repetidas", "Sequências de pelo menos quatro leituras elétricas idênticas.", "leituras", "bar"],
     "anomaly-inconsistency": ["Inconsistências elétricas", "Diferença entre potência medida e tensão × corrente acima de 30%.", "W", "bar"],
     "availability-history": ["Histórico de comunicação", "Medições recebidas por dia e equipamento.", "medições", "line"],
-    "availability-percent": ["Disponibilidade estimada", "Estimativa baseada em medições esperadas a cada 5 segundos.", "%", "bar"],
-    "availability-gaps": ["Intervalos sem medições", "Duração dos intervalos acima de 10 segundos.", "segundos", "bar"],
+    "availability-percent": ["Disponibilidade por período", "Percentual estimado disponível e indisponível de cada equipamento no período selecionado.", "%", "bar"],
     "availability-interruptions": ["Quantidade de interrupções", "Intervalos maiores que duas janelas esperadas.", "interrupções", "bar"],
-    "availability-longest-gap": ["Maior intervalo sem comunicação", "Maior intervalo entre medições consecutivas.", "segundos", "bar"]
 };
 
 module.exports = { categories, allGraphIds, graphMeta };

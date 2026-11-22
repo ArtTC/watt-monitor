@@ -13,7 +13,7 @@ function generate(rows, id, aggregation, knownDevices = [], timezoneOffsetMinute
                 if (!grouped.has(label)) grouped.set(label, []);
                 grouped.get(label).push(Number(row.potencia));
             }
-            return { name: `${device.name} (${device.mac})`, data: displayLabels.map((label) => {
+            return { name: `${device.name}`, data: displayLabels.map((label) => {
                 const bucket = grouped.get(label);
                 return bucket?.length ? bucket.reduce((sum, value) => sum + value, 0) / bucket.length : null;
             }) };
@@ -43,7 +43,7 @@ function generate(rows, id, aggregation, knownDevices = [], timezoneOffsetMinute
                 if (!values.has(bucket)) values.set(bucket, []);
                 values.get(bucket).push(Number(row.potencia));
             }
-            return { name: `${device.name} (${device.mac})`, values };
+            return { name: `${device.name}`, values };
         });
         const labels = sortedUnique(groups.flatMap((device) => [...device.values.keys()]));
         const series = groups.map((device) => ({ name: device.name, data: labels.map((label) => {
@@ -67,7 +67,7 @@ function generate(rows, id, aggregation, knownDevices = [], timezoneOffsetMinute
                 if (!variations.has(label)) variations.set(label, []);
                 variations.get(label).push((current - previous) / Math.abs(previous) * 100);
             }
-            return { name: `${device.name} (${device.mac})`, values: variations };
+            return { name: `${device.name}`, values: variations };
         });
         const labels = sortedUnique(points.flatMap((device) => [...device.values.keys()]));
         const displayLabels = labels.length > 900 ? labels.filter((_, index) => index % Math.ceil(labels.length / 900) === 0) : labels;

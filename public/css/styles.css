@@ -376,8 +376,13 @@ td small { display:block; color:var(--muted); margin-top:3px; }
 .analytics-view { margin-top:20px; scroll-margin-top:14px; }
 .analytics-view > .section-head { align-items:center; }
 .analytics-view > .section-head h2 { margin:5px 0 0; font-size:clamp(22px,4vw,30px); }
-.analytics-summary { grid-template-columns:repeat(4,minmax(0,1fr)); margin:12px 0; }
-.analytics-device-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:10px 0 16px; }
+.analytics-summary { grid-template-columns:repeat(6,minmax(0,1fr)); margin:12px 0; }
+.analytics-device-summary { margin:10px 0 16px; }
+.analytics-device-table th,.analytics-device-table td { padding:8px 10px; }
+.analytics-device-table tbody tr { transition:background .12s ease; }
+.analytics-device-table tbody tr:hover { background:var(--surface-raised); }
+.analytics-device-filter { border:0; padding:0; background:transparent; color:var(--accent); font:inherit; font-weight:750; text-align:left; }
+.analytics-device-filter:hover,.analytics-device-filter:focus-visible { text-decoration:underline; }
 .analytics-device-stat { display:grid; gap:4px; min-width:0; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:var(--surface); font-size:11px; }
 .analytics-device-stat span { color:var(--muted); overflow-wrap:anywhere; }
 .analytics-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:stretch; gap:13px; }
@@ -414,7 +419,7 @@ td small { display:block; color:var(--muted); margin-top:3px; }
   .analytics-checks { grid-template-columns:1fr; }
   .analytics-summary { grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
   .analytics-summary .summary-card { min-width:0; padding:12px 10px; }
-  .analytics-device-summary,.analytics-grid { grid-template-columns:1fr; }
+  .analytics-grid { grid-template-columns:1fr; }
   .analytics-card-wide { grid-column:auto; }
   .analytics-view > .section-head { align-items:flex-start; flex-direction:column; }
 }
@@ -450,7 +455,7 @@ td small { display:block; color:var(--muted); margin-top:3px; }
   .app-main .analytics-summary { gap:8px; margin:10px 0; }
   .app-main .analytics-card { padding:13px; }
   .app-main .analytics-grid { gap:10px; }
-  .app-main .analytics-device-summary { gap:7px; margin:8px 0 12px; }
+  .app-main .analytics-device-summary { margin:8px 0 12px; }
   .reports-page .report-filter-grid { gap:10px; }
   .reports-page .report-option-card { margin:0; }
   .reports-page .report-table-panel .section-head { margin-bottom:8px; }

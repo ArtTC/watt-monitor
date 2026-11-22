@@ -53,7 +53,7 @@ function generate(rows, id, aggregation = "day", knownDevices = [], timezoneOffs
             ? [{ name: "Total dos equipamentos", data: labels.map((label) => grouped.reduce((sum, device) => sum + (device.energy.get(label) || 0), 0)) }]
             : id === "energy-month"
                 ? [{ name: `Energia total por ${interval}`, data: labels.map((label) => grouped.reduce((sum, device) => sum + (device.energy.get(label) || 0), 0)) }]
-                : grouped.map((device) => ({ name: `${device.name} (${device.mac})`, data: labels.map((label) => device.energy.get(label) || 0) }));
+                : grouped.map((device) => ({ name: `${device.name}`, data: labels.map((label) => device.energy.get(label) || 0) }));
         const result = chart(id, labels, series, "bar", "Wh");
         const titulo = id === "energy-day" ? `Energia gerada por ${interval}`
             : id === "energy-month" ? `Energia total por ${interval}`
@@ -63,7 +63,7 @@ function generate(rows, id, aggregation = "day", knownDevices = [], timezoneOffs
     if (id === "energy-cumulative") {
         const series = grouped.map((device) => {
             let sum = 0;
-            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => { sum += device.energy.get(label) || 0; return sum; }) };
+            return { name: `${device.name}`, data: labels.map((label) => { sum += device.energy.get(label) || 0; return sum; }) };
         });
         return { ...chart(id, labels, series, "line", "Wh"), titulo: `Energia acumulada por ${interval}`, descricao: `Energia acumulada ao longo de cada intervalo de ${interval}.` };
     }

@@ -23,6 +23,12 @@ export function bindDevicePicker(container, id, { allLabel, signal, onChange = (
     const items = [...picker.querySelectorAll(".device-picker-item")];
 
     const selected = () => items.filter((input) => input.checked).map((input) => input.value);
+    const setSelected = (values) => {
+        const selectedMacs = new Set(values);
+        items.forEach((input) => { input.checked = selectedMacs.has(input.value); });
+        sync();
+        onChange(selected());
+    };
     const sync = () => {
         const checked = selected().length;
         master.checked = items.length > 0 && checked === items.length;
@@ -37,5 +43,5 @@ export function bindDevicePicker(container, id, { allLabel, signal, onChange = (
     }, { signal });
     items.forEach((input) => input.addEventListener("change", () => { sync(); onChange(selected()); }, { signal }));
     sync();
-    return { selected, sync };
+    return { selected, sync, setSelected };
 }

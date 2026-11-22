@@ -59,38 +59,32 @@ function generate(rows, id, periodStart, periodEnd, aggregation = "day", knownDe
                 const label = bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes);
                 counts.set(label, (counts.get(label) || 0) + 1);
             }
-            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => counts.get(label) || 0) };
+            return { name: `${device.name}`, data: labels.map((label) => counts.get(label) || 0) };
         });
         return { ...chart(id, labels, series, "line", "medições"), titulo: `Histórico de comunicação por ${interval}`, descricao: `Medições recebidas por ${interval} e equipamento.` };
     }
 
     if (id === "availability-percent") {
-        const series = devices.map((device) => {
+        const series = devices.flatMap((device) => {
             const counts = new Map();
             for (const row of device.rows) {
                 const label = bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes);
                 counts.set(label, (counts.get(label) || 0) + 1);
             }
-            return { name: `${device.name} (${device.mac})`, data: windows.map((window) => {
+            const availability = windows.map((window) => {
                 const seconds = (window.end - window.start) / 1000;
                 return seconds > 0 ? round(Math.min(seconds, (counts.get(window.label) || 0) * EXPECTED_SECONDS) / seconds * 100, 2) : 0;
-            }) };
+            });
+            const name = `${device.name}`;
+            return [
+                { name: `${name} - Disponibilidade`, stackGroup: device.id, data: availability },
+                { name: `${name} - Indisponibilidade`, stackGroup: device.id, data: availability.map((value) => round(Math.max(0, 100 - value), 2)) }
+            ];
         });
-        return { ...chart(id, labels, series, "line", "%"), titulo: `Disponibilidade estimada por ${interval}`, descricao: `Estimativa de disponibilidade em cada intervalo de ${interval}.` };
+        const chartData = chart(id, labels, series, "bar", "%");
+        chartData.series = chartData.series.map((item, index) => ({ ...item, stackGroup: series[index].stackGroup }));
+        return { ...chartData, stacked: true, titulo: `Disponibilidade por ${interval}`, descricao: `Disponibilidade e indisponibilidade estimadas de cada equipamento em cada intervalo de ${interval}.` };
     }
-
-    if (id === "availability-gaps") {
-        const series = devices.map((device) => {
-            const totals = new Map();
-            for (const gap of device.gaps) {
-                const label = bucketFor(gap.row.data_hora, aggregation, timezoneOffsetMinutes);
-                totals.set(label, (totals.get(label) || 0) + Math.max(0, gap.seconds - EXPECTED_SECONDS));
-            }
-            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => totals.get(label) || 0) };
-        });
-        return { ...chart(id, labels, series, "bar", "segundos"), titulo: `Intervalos sem medições por ${interval}`, descricao: `Tempo sem medições acumulado por equipamento em cada intervalo de ${interval}.` };
-    }
-
     if (id === "availability-interruptions") {
         const series = devices.map((device) => {
             const counts = new Map();
@@ -99,22 +93,11 @@ function generate(rows, id, periodStart, periodEnd, aggregation = "day", knownDe
                 const label = bucketFor(gap.row.data_hora, aggregation, timezoneOffsetMinutes);
                 counts.set(label, (counts.get(label) || 0) + 1);
             }
-            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => counts.get(label) || 0) };
+            return { name: `${device.name}`, data: labels.map((label) => counts.get(label) || 0) };
         });
         return { ...chart(id, labels, series, "bar", "interrupções"), titulo: `Quantidade de interrupções por ${interval}`, descricao: `Interrupções por equipamento em cada intervalo de ${interval}.` };
     }
 
-    if (id === "availability-longest-gap") {
-        const series = devices.map((device) => {
-            const longest = new Map();
-            for (const gap of device.gaps) {
-                const label = bucketFor(gap.row.data_hora, aggregation, timezoneOffsetMinutes);
-                longest.set(label, Math.max(longest.get(label) || 0, gap.seconds - EXPECTED_SECONDS));
-            }
-            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => longest.get(label) || 0) };
-        });
-        return { ...chart(id, labels, series, "bar", "segundos"), titulo: `Maior intervalo sem comunicação por ${interval}`, descricao: `Maior lacuna por equipamento em cada intervalo de ${interval}.` };
-    }
     return null;
 }
 

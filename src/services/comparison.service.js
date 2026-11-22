@@ -8,7 +8,7 @@ function generate(rows, id, aggregation = "day", knownDevices = [], timezoneOffs
 
     if (id === "compare-energy") {
         const grouped = energy.energyByDevice(rows, aggregation, knownDevices, timezoneOffsetMinutes);
-        const series = grouped.map((device) => ({ name: `${device.name} (${device.mac})`, data: labels.map((label) => device.energy.get(label) || 0) }));
+        const series = grouped.map((device) => ({ name: `${device.name}`, data: labels.map((label) => device.energy.get(label) || 0) }));
         return { ...chart(id, labels, series, "bar", "Wh"), titulo: `Energia por equipamento por ${interval}`, descricao: `Energia integrada em cada intervalo para cada equipamento.` };
     }
 
@@ -22,7 +22,7 @@ function generate(rows, id, aggregation = "day", knownDevices = [], timezoneOffs
                 if (!buckets.has(label)) buckets.set(label, []);
                 buckets.get(label).push(Number(row[metric]));
             }
-            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => {
+            return { name: `${device.name}`, data: labels.map((label) => {
                 const values = buckets.get(label);
                 if (!values?.length) return null;
                 return id === "compare-power-max" ? Math.max(...values) : values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -42,7 +42,7 @@ function generate(rows, id, aggregation = "day", knownDevices = [], timezoneOffs
                 if (!buckets.has(label)) buckets.set(label, []);
                 buckets.get(label).push(Number(row.potencia));
             }
-            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => {
+            return { name: `${device.name}`, data: labels.map((label) => {
                 const values = buckets.get(label) || [];
                 return values.length ? round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
             }) };

@@ -9,7 +9,7 @@ function formatAxisLabel(value) {
     match = label.match(/^(\d{4})-(\d{2})$/);
     if (match) return `${match[2]}/${match[1].slice(-2)}`;
     match = label.match(/^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):\d{2}(?::\d{2})?$/);
-    if (match) return `${match[3]}/${match[2]} ${match[4]}`;
+    if (match) return `${match[3]}/${match[2]}/${match[1].slice(-2)} ${match[4]}`;
     return label;
 }
 
@@ -162,6 +162,9 @@ export function drawAnalyticsChart(canvas, graph) {
         : ["#f4c542", "#74b7ff", "#ffc477", "#c794ee", "#ff8994", "#5dd5dc"];
     const isNumeric = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
     const values = series.flatMap((item) => item.data || []).filter(isNumeric).map(Number);
+    const stackGroupKeys = [...new Set(series.map((item) => item.stackGroup ?? "__all__"))];
+    const stackGroups = stackGroupKeys.map((key) => series.filter((item) => (item.stackGroup ?? "__all__") === key));
+    const stackedTotal = (index) => Math.max(0, ...stackGroups.map((group) => group.reduce((sum, item) => sum + (isNumeric(item.data[index]) ? Math.max(0, Number(item.data[index])) : 0), 0)));
     context.font = "10px system-ui";
     context.fillStyle = document.documentElement.dataset.theme === "light" ? "#53645a" : "#94a69a";
     if (!labels.length || !values.length) {
@@ -172,14 +175,16 @@ export function drawAnalyticsChart(canvas, graph) {
         return;
     }
     const minValue = Math.min(0, ...values);
-    const maxValue = Math.max(1e-9, ...values);
+    const maxValue = graph.stacked
+        ? Math.max(1e-9, ...labels.map((_, index) => stackedTotal(index)))
+        : Math.max(1e-9, ...values);
     const colors = palette;
 
     if (graph.type === "pie" || graph.type === "doughnut") {
-        const slices = labels.map((label, index) => ({
-            label,
-            value: series.reduce((sum, item) => sum + (isNumeric(item.data[index]) ? Math.max(0, Number(item.data[index])) : 0), 0)
-        })).filter((slice) => slice.value > 0);
+        const slices = series.flatMap((item) => labels.map((label, index) => ({
+            label: series.length > 1 ? `${label} · ${item.name}` : label,
+            value: isNumeric(item.data[index]) ? Math.max(0, Number(item.data[index])) : 0
+        }))).filter((slice) => slice.value > 0);
         const total = slices.reduce((sum, slice) => sum + slice.value, 0);
         if (!total) {
             setHoverTargets(canvas, []);
@@ -253,7 +258,7 @@ export function drawAnalyticsChart(canvas, graph) {
         const right = 16, top = 12, bottom = 12;
         const plotWidth = Math.max(1, width - left - right);
         const rowHeight = Math.max(22, (height - top - bottom) / labels.length);
-        const allMax = Math.max(1e-9, ...values);
+        const allMax = maxValue;
         for (let index = 0; index <= 4; index++) {
             const x = left + plotWidth * index / 4;
             context.strokeStyle = document.documentElement.dataset.theme === "light" ? "#d7e1da" : "#3c392e";
@@ -265,19 +270,40 @@ export function drawAnalyticsChart(canvas, graph) {
             const y = top + rowHeight * index;
             context.fillStyle = document.documentElement.dataset.theme === "light" ? "#53645a" : "#94a69a";
             context.textAlign = "right"; context.textBaseline = "middle";
-            context.fillText(label, left - 8, y + rowHeight / 2, left - 14);
-            series.forEach((item, seriesIndex) => {
-                const raw = item.data[index];
-                if (!isNumeric(raw)) return;
-                const value = Number(raw);
-                const h = Math.max(2, Math.min(15, rowHeight / Math.max(1, series.length) - 2));
-                const offset = (seriesIndex - (series.length - 1) / 2) * (h + 2);
-                const barWidth = Math.max(0, plotWidth * value / allMax);
-                context.fillStyle = colors[seriesIndex % colors.length];
-                const barY = y + rowHeight / 2 + offset - h / 2;
-                context.fillRect(left, barY, barWidth, h);
-                hoverTargets.push({ x: left, y: barY, width: barWidth, height: h, text: `${formatAxisLabel(label)} · ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
-            });
+            context.fillText(formatAxisLabel(label), left - 8, y + rowHeight / 2, left - 14);
+            if (graph.stacked) {
+                stackGroups.forEach((group, groupIndex) => {
+                    let accumulated = 0;
+                    const subrowHeight = rowHeight / stackGroups.length;
+                    const h = Math.max(2, Math.min(18, subrowHeight - 2));
+                    const barY = y + subrowHeight * groupIndex + subrowHeight / 2 - h / 2;
+                    group.forEach((item) => {
+                        const seriesIndex = series.indexOf(item);
+                        const raw = item.data[index];
+                        if (!isNumeric(raw)) return;
+                        const value = Math.max(0, Number(raw));
+                        const segmentX = left + plotWidth * accumulated / allMax;
+                        const barWidth = Math.max(0, plotWidth * value / allMax);
+                        context.fillStyle = colors[seriesIndex % colors.length];
+                        context.fillRect(segmentX, barY, barWidth, h);
+                        hoverTargets.push({ x: segmentX, y: barY, width: barWidth, height: h, text: `${formatAxisLabel(label)} · ${item.name}: ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
+                        accumulated += value;
+                    });
+                });
+            } else {
+                series.forEach((item, seriesIndex) => {
+                    const raw = item.data[index];
+                    if (!isNumeric(raw)) return;
+                    const value = Number(raw);
+                    const h = Math.max(2, Math.min(15, rowHeight / Math.max(1, series.length) - 2));
+                    const offset = (seriesIndex - (series.length - 1) / 2) * (h + 2);
+                    const barWidth = Math.max(0, plotWidth * value / allMax);
+                    context.fillStyle = colors[seriesIndex % colors.length];
+                    const barY = y + rowHeight / 2 + offset - h / 2;
+                    context.fillRect(left, barY, barWidth, h);
+                    hoverTargets.push({ x: left, y: barY, width: barWidth, height: h, text: `${formatAxisLabel(label)} · ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
+                });
+            }
         });
         setHoverTargets(canvas, hoverTargets);
         return;
@@ -286,7 +312,7 @@ export function drawAnalyticsChart(canvas, graph) {
     const left = 48, right = 12, top = 20, bottom = 42;
     const plotWidth = Math.max(1, width - left - right);
     const plotHeight = Math.max(1, height - top - bottom);
-    const max = maxValue * 1.12;
+    const max = graph.stacked ? maxValue : maxValue * 1.12;
     const min = graph.type === "bar" ? Math.min(0, minValue) : minValue;
     for (let index = 0; index <= 4; index++) {
         const y = top + plotHeight * index / 4;
@@ -299,7 +325,31 @@ export function drawAnalyticsChart(canvas, graph) {
     }
     const pointX = (index) => left + (labels.length === 1 ? plotWidth / 2 : plotWidth * index / (labels.length - 1));
     const hoverTargets = [];
-    if (graph.type === "bar") {
+    if (graph.type === "bar" && graph.stacked) {
+        const groupWidth = plotWidth / labels.length;
+        const deviceGroupWidth = groupWidth * 0.78;
+        const barWidth = Math.max(2, Math.min(36, deviceGroupWidth / stackGroups.length));
+        labels.forEach((label, index) => {
+            stackGroups.forEach((group, groupIndex) => {
+                let accumulated = 0;
+                const x = pointX(index) - deviceGroupWidth / 2 + groupIndex * barWidth + (barWidth - Math.min(36, barWidth)) / 2;
+                group.forEach((item) => {
+                    const seriesIndex = series.indexOf(item);
+                    const raw = item.data[index];
+                    if (!isNumeric(raw)) return;
+                    const value = Math.max(0, Number(raw));
+                    const previousY = top + plotHeight - (accumulated / (max - min || 1)) * plotHeight;
+                    const nextY = top + plotHeight - ((accumulated + value) / (max - min || 1)) * plotHeight;
+                    const segmentY = Math.min(previousY, nextY);
+                    const segmentHeight = Math.max(2, Math.abs(previousY - nextY));
+                    context.fillStyle = colors[seriesIndex % colors.length];
+                    context.fillRect(x, segmentY, Math.min(36, barWidth), segmentHeight);
+                    hoverTargets.push({ x, y: segmentY, width: Math.min(36, barWidth), height: segmentHeight, text: `${formatAxisLabel(label)} · ${item.name}: ${formatNumber(value)} ${graph.unidade || ""}`.trim() });
+                    accumulated += value;
+                });
+            });
+        });
+    } else if (graph.type === "bar") {
         const groupWidth = plotWidth / labels.length;
         const barWidth = Math.max(1, Math.min(28, groupWidth * 0.78 / Math.max(1, series.length)));
         series.forEach((item, seriesIndex) => item.data.forEach((raw, index) => {

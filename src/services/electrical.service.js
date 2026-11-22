@@ -47,7 +47,7 @@ function perDeviceTimeChart(rows, metric, id, unit, aggregation, knownDevices, t
     const displayLabels = labels.length > 900 ? labels.filter((_, index) => index % Math.ceil(labels.length / 900) === 0) : labels;
     const series = devices.map((device) => {
         const values = aggregate(device.rows, metric, "avg", aggregation, timezoneOffsetMinutes);
-        return { name: `${device.name} (${device.mac})`, data: displayLabels.map((label) => values.get(label) ?? null) };
+        return { name: `${device.name}`, data: displayLabels.map((label) => values.get(label) ?? null) };
     });
     return chart(id, displayLabels, series, "line", unit);
 }
@@ -64,7 +64,7 @@ function changeChart(rows, metric, id, unit, aggregation, percent = false, known
             if (!grouped.has(label)) grouped.set(label, []);
             grouped.get(label).push(percent ? ((current - previous) / Math.abs(previous)) * 100 : Math.abs(current - previous));
         }
-        return { name: `${device.name} (${device.mac})`, values: grouped };
+        return { name: `${device.name}`, values: grouped };
     });
     const labels = sortedUnique(points.flatMap((device) => [...device.values.keys()]));
     return chart(id, labels, points.map((device) => ({
@@ -87,7 +87,7 @@ function generate(rows, id, aggregation, knownDevices = [], timezoneOffsetMinute
         const labels = sortedUnique(rows.map((row) => bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes)));
         const series = devices.map((device) => {
             const means = aggregate(device.rows, metric, "avg", aggregation, timezoneOffsetMinutes);
-            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => means.get(label) ?? null) };
+            return { name: `${device.name}`, data: labels.map((label) => means.get(label) ?? null) };
         });
         const result = chart(id, labels, series, "line", unit);
         return { ...result, titulo: `${voltage ? "Tensão" : "Corrente"} média por ${interval}`, descricao: `${voltage ? "Tensão" : "Corrente"} média agrupada por ${interval}.` };
