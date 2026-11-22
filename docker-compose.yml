@@ -13,7 +13,4 @@ services:
       - "3000:3000"
 
     volumes:
-      - watt_data:/data
-
-volumes:
-  watt_data:
+      - /opt/watt-monitor/data:/data
