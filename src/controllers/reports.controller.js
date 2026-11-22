@@ -21,16 +21,17 @@ function list(req, res) {
     const startDateTime = new Date(startTimestamp);
     const endDateTime = new Date(endTimestamp);
     if (+startDateTime > +endDateTime) return res.status(400).json({ sucesso: false, mensagem: "A data e hora inicial devem ser anteriores às finais." });
-    let deviceId = null;
-    if (req.query.esp_id) {
-        const mac = normalizeMac(req.query.esp_id);
-        if (!isValidMac(mac)) return res.status(400).json({ sucesso: false, mensagem: "MAC inválido." });
-        const device = devices.findByMac(mac);
-        if (!device || Number(device.usuario_id) !== Number(req.user.id)) return res.status(404).json({ sucesso: false, mensagem: "Dispositivo não encontrado na sua conta." });
-        deviceId = device.id;
+    let deviceIds = null;
+    const requestedDevices = req.query.esp_id == null ? [] : Array.isArray(req.query.esp_id) ? req.query.esp_id : [req.query.esp_id];
+    if (requestedDevices.length) {
+        const macs = [...new Set(requestedDevices.map(normalizeMac))];
+        if (macs.some((mac) => !isValidMac(mac))) return res.status(400).json({ sucesso: false, mensagem: "MAC inválido." });
+        const ownedDevices = macs.map((mac) => devices.findByMac(mac));
+        if (ownedDevices.some((device) => !device || Number(device.usuario_id) !== Number(req.user.id))) return res.status(404).json({ sucesso: false, mensagem: "Um ou mais dispositivos não pertencem à sua conta." });
+        deviceIds = ownedDevices.map((device) => device.id);
     }
     try {
-        const records = reports.queryForUser(req.user.id, startDateTime.toISOString(), new Date(+endDateTime + 60000).toISOString(), deviceId);
+        const records = reports.queryForUser(req.user.id, startDateTime.toISOString(), new Date(+endDateTime + 60000).toISOString(), deviceIds);
         const stats = {};
         for (const [key, column] of [["tensao", "tensao"], ["corrente", "corrente"], ["potencia", "potencia"]]) {
             const values = records.map((row) => Number(row[column]));

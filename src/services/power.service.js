@@ -1,36 +1,41 @@
-const { groupByDevice, bucketFor, localTimestamp, chart, sortedUnique, round } = require("./analytics.helpers");
-
-function sample(rows, max = 900) {
-    if (rows.length <= max) return rows;
-    const step = (rows.length - 1) / (max - 1);
-    return Array.from({ length: max }, (_, index) => rows[Math.round(index * step)]);
-}
+const { groupByDevice, bucketFor, chart, sortedUnique, round } = require("./analytics.helpers");
 
 function generate(rows, id, aggregation, knownDevices = [], timezoneOffsetMinutes = 0) {
     const devices = groupByDevice(rows, knownDevices);
+    const interval = { hour: "hora", day: "dia", month: "mês" }[aggregation] || "intervalo";
     if (id === "power-time") {
-        const labels = sortedUnique(devices.flatMap((device) => sample(device.rows).map((row) => localTimestamp(row.data_hora, timezoneOffsetMinutes))));
+        const labels = sortedUnique(rows.map((row) => bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes)));
         const displayLabels = labels.length > 900 ? labels.filter((_, index) => index % Math.ceil(labels.length / 900) === 0) : labels;
         const series = devices.map((device) => {
-            const values = new Map(sample(device.rows).map((row) => [localTimestamp(row.data_hora, timezoneOffsetMinutes), Number(row.potencia)]));
-            return { name: `${device.name} (${device.mac})`, data: displayLabels.map((label) => values.get(label) ?? null) };
+            const grouped = new Map();
+            for (const row of device.rows) {
+                const label = bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes);
+                if (!grouped.has(label)) grouped.set(label, []);
+                grouped.get(label).push(Number(row.potencia));
+            }
+            return { name: `${device.name} (${device.mac})`, data: displayLabels.map((label) => {
+                const bucket = grouped.get(label);
+                return bucket?.length ? bucket.reduce((sum, value) => sum + value, 0) / bucket.length : null;
+            }) };
         });
-        return chart(id, displayLabels, series, "line", "W");
+        return { ...chart(id, displayLabels, series, "line", "W"), descricao: `Potência média agrupada por ${interval}.` };
     }
     if (id === "power-hourly-average") {
-        const labels = Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00`);
-        const values = new Map(labels.map((label) => [label, []]));
+        const values = new Map();
         for (const row of rows) {
-            const hour = String(new Date(Date.parse(row.data_hora) - timezoneOffsetMinutes * 60000).getUTCHours()).padStart(2, "0");
-            values.get(hour + ":00").push(Number(row.potencia));
+            const label = bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes);
+            if (!values.has(label)) values.set(label, []);
+            values.get(label).push(Number(row.potencia));
         }
-        return chart(id, labels, [{ name: "Potência média", data: labels.map((label) => {
+        const labels = sortedUnique([...values.keys()]);
+        const result = chart(id, labels, [{ name: `Potência média por ${interval}`, data: labels.map((label) => {
             const bucket = values.get(label);
             return bucket.length ? bucket.reduce((sum, value) => sum + value, 0) / bucket.length : null;
         }) }], "bar", "W");
+        return { ...result, titulo: `Potência média por ${interval}`, descricao: `Média das leituras de potência agrupadas por ${interval}.` };
     }
     if (id === "power-daily-max" || id === "power-period-comparison") {
-        const bucketSize = id === "power-daily-max" ? "day" : aggregation;
+        const bucketSize = aggregation;
         const groups = devices.map((device) => {
             const values = new Map();
             for (const row of device.rows) {
@@ -47,24 +52,32 @@ function generate(rows, id, aggregation, knownDevices = [], timezoneOffsetMinute
             if (id === "power-daily-max") return Math.max(...bucket);
             return bucket.reduce((sum, value) => sum + value, 0) / bucket.length;
         }) }));
-        return chart(id, labels, series, "bar", "W");
+        const result = chart(id, labels, series, "bar", "W");
+        if (id === "power-daily-max") return { ...result, titulo: `Potência máxima por ${interval}`, descricao: `Maior leitura de potência em cada intervalo de ${interval}.` };
+        return { ...result, titulo: `Comparação de potência por ${interval}`, descricao: `Potência média por equipamento em cada intervalo de ${interval}.` };
     }
     if (id === "power-variation") {
         const points = devices.map((device) => {
-            const variations = [];
+            const variations = new Map();
             for (let index = 1; index < device.rows.length; index++) {
                 const previous = Number(device.rows[index - 1].potencia);
                 const current = Number(device.rows[index].potencia);
-                if (Math.abs(previous) > 1e-6) variations.push({ label: localTimestamp(device.rows[index].data_hora, timezoneOffsetMinutes), value: (current - previous) / Math.abs(previous) * 100 });
+                if (Math.abs(previous) <= 1e-6) continue;
+                const label = bucketFor(device.rows[index].data_hora, aggregation, timezoneOffsetMinutes);
+                if (!variations.has(label)) variations.set(label, []);
+                variations.get(label).push((current - previous) / Math.abs(previous) * 100);
             }
-            return { name: `${device.name} (${device.mac})`, points: sample(variations) };
+            return { name: `${device.name} (${device.mac})`, values: variations };
         });
-        const labels = sortedUnique(points.flatMap((device) => device.points.map((point) => point.label)));
+        const labels = sortedUnique(points.flatMap((device) => [...device.values.keys()]));
         const displayLabels = labels.length > 900 ? labels.filter((_, index) => index % Math.ceil(labels.length / 900) === 0) : labels;
-        const series = points.map((device) => {
-            const values = new Map(device.points.map((point) => [point.label, point.value]));
-            return { name: device.name, data: displayLabels.map((label) => values.get(label) ?? null) };
-        });
+        const series = points.map((device) => ({
+            name: device.name,
+            data: displayLabels.map((label) => {
+                const values = device.values.get(label);
+                return values?.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
+            })
+        }));
         return chart(id, displayLabels, series, "line", "%");
     }
     return null;

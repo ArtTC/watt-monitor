@@ -92,7 +92,7 @@ async function renderProtectedScreen(route, sequence) {
         } else if (route.name === "reports") {
             await mountReports(content, result.usuario);
         } else if (route.name === "analytics") {
-            await mountAnalytics(content);
+            await mountAnalytics(content, result.usuario);
         } else {
             content.innerHTML = `<section class="panel"><h3>Página não encontrada</h3><p class="panel-copy">O endereço solicitado não existe.</p><a class="btn btn-primary" href="#/dashboard">Voltar ao painel</a></section>`;
         }

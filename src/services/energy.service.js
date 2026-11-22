@@ -23,9 +23,10 @@ function integrate(records, bucketType = "day", timezoneOffsetMinutes = 0) {
             const pEnd = Number(previous.potencia) + (Number(current.potencia) - Number(previous.potencia)) * ((segmentEnd - start) / (end - start));
             const wh = ((pStart + pEnd) / 2) * ((segmentEnd - cursor) / 3600000);
             const keyDate = new Date(cursor - offsetMilliseconds);
+            const day = keyDate.toISOString().slice(0, 10);
             const key = bucketType === "hour"
-                ? String(keyDate.getUTCHours()).padStart(2, "0")
-                : keyDate.toISOString().slice(0, 10);
+                ? `${day} ${String(keyDate.getUTCHours()).padStart(2, "0")}:00`
+                : bucketType === "month" ? day.slice(0, 7) : day;
             totals.set(key, (totals.get(key) || 0) + wh);
             cursor = segmentEnd;
         }
@@ -43,41 +44,34 @@ function totalEnergyWh(rows, knownDevices = [], timezoneOffsetMinutes = 0) {
     return dailyEnergy(rows, knownDevices, timezoneOffsetMinutes).reduce((sum, device) => sum + [...device.energy.values()].reduce((a, b) => a + b, 0), 0);
 }
 
-function generate(rows, id, knownDevices = [], timezoneOffsetMinutes = 0) {
-    if (id === "energy-day" || id === "energy-daily-comparison") {
-        const devices = dailyEnergy(rows, knownDevices, timezoneOffsetMinutes);
-        const labels = sortedUnique(devices.flatMap((device) => [...device.energy.keys()]));
-        const series = id === "energy-day" && devices.length > 1
-            ? [{ name: "Total dos equipamentos", data: labels.map((label) => devices.reduce((sum, device) => sum + (device.energy.get(label) || 0), 0)) }]
-            : devices.map((device) => ({ name: `${device.name} (${device.mac})`, data: labels.map((label) => device.energy.get(label) || 0) }));
-        return chart(id, labels, series, "bar", "Wh");
-    }
-    if (id === "energy-month") {
-        const devices = dailyEnergy(rows, knownDevices, timezoneOffsetMinutes);
-        const monthly = new Map();
-        for (const device of devices) for (const [day, value] of device.energy) {
-            const month = day.slice(0, 7);
-            monthly.set(month, (monthly.get(month) || 0) + value);
-        }
-        const labels = sortedUnique([...monthly.keys()]);
-        return chart(id, labels, [{ name: "Energia total", data: labels.map((label) => monthly.get(label)) }], "bar", "Wh");
+function generate(rows, id, aggregation = "day", knownDevices = [], timezoneOffsetMinutes = 0) {
+    const interval = { hour: "hora", day: "dia", month: "mês" }[aggregation] || "intervalo";
+    const grouped = energyByDevice(rows, aggregation, knownDevices, timezoneOffsetMinutes);
+    const labels = sortedUnique(grouped.flatMap((device) => [...device.energy.keys()]));
+    if (["energy-day", "energy-month", "energy-daily-comparison"].includes(id)) {
+        const series = id === "energy-day" && grouped.length > 1
+            ? [{ name: "Total dos equipamentos", data: labels.map((label) => grouped.reduce((sum, device) => sum + (device.energy.get(label) || 0), 0)) }]
+            : id === "energy-month"
+                ? [{ name: `Energia total por ${interval}`, data: labels.map((label) => grouped.reduce((sum, device) => sum + (device.energy.get(label) || 0), 0)) }]
+                : grouped.map((device) => ({ name: `${device.name} (${device.mac})`, data: labels.map((label) => device.energy.get(label) || 0) }));
+        const result = chart(id, labels, series, "bar", "Wh");
+        const titulo = id === "energy-day" ? `Energia gerada por ${interval}`
+            : id === "energy-month" ? `Energia total por ${interval}`
+                : `Comparação de energia por ${interval}`;
+        return { ...result, titulo, descricao: `Energia integrada por ${interval}${id === "energy-daily-comparison" ? " para cada equipamento" : ""}.` };
     }
     if (id === "energy-cumulative") {
-        const daily = dailyEnergy(rows, knownDevices, timezoneOffsetMinutes);
-        const labels = sortedUnique(daily.flatMap((device) => [...device.energy.keys()]));
-        const series = daily.map((device) => {
+        const series = grouped.map((device) => {
             let sum = 0;
             return { name: `${device.name} (${device.mac})`, data: labels.map((label) => { sum += device.energy.get(label) || 0; return sum; }) };
         });
-        return chart(id, labels, series, "line", "Wh");
+        return { ...chart(id, labels, series, "line", "Wh"), titulo: `Energia acumulada por ${interval}`, descricao: `Energia acumulada ao longo de cada intervalo de ${interval}.` };
     }
     if (id === "energy-hourly-profile") {
-        const devices = energyByDevice(rows, "hour", knownDevices, timezoneOffsetMinutes);
-        const labels = Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}:00`);
-        const data = labels.map((label) => devices.reduce((sum, device) => sum + (device.energy.get(label.slice(0, 2)) || 0), 0));
-        return chart(id, labels, [{ name: "Energia", data }], "line", "Wh");
+        const data = labels.map((label) => grouped.reduce((sum, device) => sum + (device.energy.get(label) || 0), 0));
+        return { ...chart(id, labels, [{ name: `Energia por ${interval}`, data }], "line", "Wh"), titulo: `Perfil de geração por ${interval}`, descricao: `Energia integrada agrupada por ${interval}.` };
     }
     return null;
 }
 
-module.exports = { generate, integrate, dailyEnergy, totalEnergyWh, MAX_INTEGRATION_GAP_SECONDS };
+module.exports = { generate, integrate, energyByDevice, dailyEnergy, totalEnergyWh, MAX_INTEGRATION_GAP_SECONDS };

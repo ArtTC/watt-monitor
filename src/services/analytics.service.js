@@ -32,12 +32,12 @@ function buildAnalytics({ rows, devices, graphIds, aggregation, start, end, time
     for (const id of graphIds) {
         const meta = graphMeta[id];
         let result;
-        if (id.startsWith("energy-")) result = energyService.generate(rows, id, devices, timezoneOffsetMinutes);
+        if (id.startsWith("energy-")) result = energyService.generate(rows, id, aggregation, devices, timezoneOffsetMinutes);
         else if (id.startsWith("power-")) result = powerService.generate(rows, id, aggregation, devices, timezoneOffsetMinutes);
         else if (id.startsWith("voltage-") || id.startsWith("current-")) result = electricalService.generate(rows, id, aggregation, devices, timezoneOffsetMinutes);
-        else if (id.startsWith("compare-")) result = comparisonService.generate(rows, id, devices, timezoneOffsetMinutes);
+        else if (id.startsWith("compare-")) result = comparisonService.generate(rows, id, aggregation, devices, timezoneOffsetMinutes);
         else if (id.startsWith("anomaly-")) result = anomalyService.generate(rows, id, devices, timezoneOffsetMinutes);
-        else if (id.startsWith("availability-")) result = availabilityService.generate(rows, id, start, end, devices, timezoneOffsetMinutes);
+        else if (id.startsWith("availability-")) result = availabilityService.generate(rows, id, start, end, aggregation, devices, timezoneOffsetMinutes);
         if (result) graphs[id] = { ...metaObject(id, meta), ...result };
     }
     return { indicadores: buildIndicators(rows, devices, timezoneOffsetMinutes), graficos: graphs };

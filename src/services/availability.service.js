@@ -1,4 +1,4 @@
-const { groupByDevice, chart, sortedUnique, round, bucketFor, localTimestamp } = require("./analytics.helpers");
+const { groupByDevice, chart, round, bucketFor } = require("./analytics.helpers");
 
 const EXPECTED_SECONDS = 5;
 const INTERRUPTION_SECONDS = EXPECTED_SECONDS * 2;
@@ -26,51 +26,96 @@ function collect(rows, periodStart, periodEnd, knownDevices = []) {
     });
 }
 
-function generate(rows, id, periodStart, periodEnd, knownDevices = [], timezoneOffsetMinutes = 0) {
+function bucketWindows(periodStart, periodEnd, aggregation, timezoneOffsetMinutes = 0) {
+    const start = Date.parse(periodStart), end = Date.parse(periodEnd);
+    const windows = [];
+    if (!Number.isFinite(start) || !Number.isFinite(end) || end < start) return windows;
+    let cursor = start;
+    while (cursor <= end) {
+        if (windows.length && cursor >= end) break;
+        const local = new Date(cursor - timezoneOffsetMinutes * 60000);
+        const year = local.getUTCFullYear(), month = local.getUTCMonth(), day = local.getUTCDate(), hour = local.getUTCHours();
+        const nextLocal = aggregation === "hour" ? Date.UTC(year, month, day, hour + 1)
+            : aggregation === "month" ? Date.UTC(year, month + 1, 1)
+                : Date.UTC(year, month, day + 1);
+        const next = nextLocal + timezoneOffsetMinutes * 60000;
+        if (next <= cursor) break;
+        windows.push({ label: bucketFor(new Date(cursor).toISOString(), aggregation, timezoneOffsetMinutes), start: cursor, end: Math.min(end, next) });
+        cursor = next;
+    }
+    return windows;
+}
+
+function generate(rows, id, periodStart, periodEnd, aggregation = "day", knownDevices = [], timezoneOffsetMinutes = 0) {
     const devices = collect(rows, periodStart, periodEnd, knownDevices);
+    const windows = bucketWindows(periodStart, periodEnd, aggregation, timezoneOffsetMinutes);
+    const labels = windows.map((window) => window.label);
+    const interval = { hour: "hora", day: "dia", month: "mês" }[aggregation] || "intervalo";
+
     if (id === "availability-history") {
-        const labels = sortedUnique(rows.map((row) => bucketFor(row.data_hora, "day", timezoneOffsetMinutes)));
         const series = devices.map((device) => {
             const counts = new Map();
             for (const row of device.rows) {
-                const day = bucketFor(row.data_hora, "day", timezoneOffsetMinutes);
-                counts.set(day, (counts.get(day) || 0) + 1);
+                const label = bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes);
+                counts.set(label, (counts.get(label) || 0) + 1);
             }
-            return { name: `${device.name} (${device.mac})`, data: labels.map((day) => counts.get(day) || 0) };
+            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => counts.get(label) || 0) };
         });
-        return chart(id, labels, series, "line", "medições");
+        return { ...chart(id, labels, series, "line", "medições"), titulo: `Histórico de comunicação por ${interval}`, descricao: `Medições recebidas por ${interval} e equipamento.` };
     }
+
     if (id === "availability-percent") {
-        const labels = devices.map((device) => `${device.name} (${device.mac})`);
-        return chart(id, labels, [{ name: "Disponibilidade estimada", data: devices.map((device) => round(device.availability, 2)) }], "hbar", "%");
+        const series = devices.map((device) => {
+            const counts = new Map();
+            for (const row of device.rows) {
+                const label = bucketFor(row.data_hora, aggregation, timezoneOffsetMinutes);
+                counts.set(label, (counts.get(label) || 0) + 1);
+            }
+            return { name: `${device.name} (${device.mac})`, data: windows.map((window) => {
+                const seconds = (window.end - window.start) / 1000;
+                return seconds > 0 ? round(Math.min(seconds, (counts.get(window.label) || 0) * EXPECTED_SECONDS) / seconds * 100, 2) : 0;
+            }) };
+        });
+        return { ...chart(id, labels, series, "line", "%"), titulo: `Disponibilidade estimada por ${interval}`, descricao: `Estimativa de disponibilidade em cada intervalo de ${interval}.` };
     }
+
     if (id === "availability-gaps") {
-        const gaps = devices.flatMap((device) => device.gaps.map((gap) => ({ device, ...gap }))).sort((a, b) => b.seconds - a.seconds).slice(0, 100);
-        if (!gaps.length) return chart(id, [rows.length ? "Nenhuma lacuna" : "Sem medições"], [{ name: "Lacunas", data: [0] }], "bar", "segundos");
-        const labels = gaps.map(({ device, row }) => `${device.name} ${localTimestamp(row.data_hora, timezoneOffsetMinutes).slice(0, 16)}`);
-        return chart(id, labels, [{ name: "Tempo além da janela esperada", data: gaps.map((gap) => Math.max(0, gap.seconds - EXPECTED_SECONDS)) }], "bar", "segundos");
+        const series = devices.map((device) => {
+            const totals = new Map();
+            for (const gap of device.gaps) {
+                const label = bucketFor(gap.row.data_hora, aggregation, timezoneOffsetMinutes);
+                totals.set(label, (totals.get(label) || 0) + Math.max(0, gap.seconds - EXPECTED_SECONDS));
+            }
+            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => totals.get(label) || 0) };
+        });
+        return { ...chart(id, labels, series, "bar", "segundos"), titulo: `Intervalos sem medições por ${interval}`, descricao: `Tempo sem medições acumulado por equipamento em cada intervalo de ${interval}.` };
     }
+
     if (id === "availability-interruptions") {
-        const counts = new Map();
-        for (const device of devices) for (const gap of device.gaps) {
-            if (gap.seconds < INTERRUPTION_SECONDS) continue;
-            const day = bucketFor(gap.row.data_hora, "day", timezoneOffsetMinutes);
-            const key = `${device.name} (${device.mac})|${day}`;
-            counts.set(key, (counts.get(key) || 0) + 1);
-        }
-        const labels = sortedUnique([...counts.keys()].map((key) => key.split("|")[1]));
-        if (!labels.length) labels.push(rows.length ? "Nenhuma interrupção" : "Sem medições");
-        return chart(id, labels, devices.map((device) => ({
-            name: `${device.name} (${device.mac})`,
-            data: labels.map((day) => counts.get(`${device.name} (${device.mac})|${day}`) || 0)
-        })), "bar", "interrupções");
+        const series = devices.map((device) => {
+            const counts = new Map();
+            for (const gap of device.gaps) {
+                if (gap.seconds < INTERRUPTION_SECONDS) continue;
+                const label = bucketFor(gap.row.data_hora, aggregation, timezoneOffsetMinutes);
+                counts.set(label, (counts.get(label) || 0) + 1);
+            }
+            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => counts.get(label) || 0) };
+        });
+        return { ...chart(id, labels, series, "bar", "interrupções"), titulo: `Quantidade de interrupções por ${interval}`, descricao: `Interrupções por equipamento em cada intervalo de ${interval}.` };
     }
+
     if (id === "availability-longest-gap") {
-        const labels = devices.map((device) => `${device.name} (${device.mac})`);
-        const longest = devices.map((device) => Math.max(0, ...device.gaps.map((gap) => gap.seconds - EXPECTED_SECONDS)));
-        return chart(id, labels, [{ name: "Maior lacuna", data: longest }], "hbar", "segundos");
+        const series = devices.map((device) => {
+            const longest = new Map();
+            for (const gap of device.gaps) {
+                const label = bucketFor(gap.row.data_hora, aggregation, timezoneOffsetMinutes);
+                longest.set(label, Math.max(longest.get(label) || 0, gap.seconds - EXPECTED_SECONDS));
+            }
+            return { name: `${device.name} (${device.mac})`, data: labels.map((label) => longest.get(label) || 0) };
+        });
+        return { ...chart(id, labels, series, "bar", "segundos"), titulo: `Maior intervalo sem comunicação por ${interval}`, descricao: `Maior lacuna por equipamento em cada intervalo de ${interval}.` };
     }
     return null;
 }
 
-module.exports = { generate, collect, EXPECTED_SECONDS, INTERRUPTION_SECONDS };
+module.exports = { generate, collect, bucketWindows, EXPECTED_SECONDS, INTERRUPTION_SECONDS };
