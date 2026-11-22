@@ -19,6 +19,7 @@ const authRoutes = require("./src/routes/auth.routes");
 const deviceRoutes = require("./src/routes/devices.routes");
 const measurementRoutes = require("./src/routes/measurements.routes");
 const reportRoutes = require("./src/routes/reports.routes");
+const analyticsRoutes = require("./src/routes/analytics.routes");
 
 const app = express();
 
@@ -39,6 +40,7 @@ app.get("/api/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/dispositivos", deviceRoutes);
 app.use("/api/relatorios", reportRoutes);
+app.use("/api/analises", analyticsRoutes);
 app.use("/api", measurementRoutes);
 
 // Tratamento de erros

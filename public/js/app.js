@@ -7,6 +7,7 @@ import { mountDashboard } from "./pages/dashboard.js";
 import { mountDevices } from "./pages/devices.js";
 import { mountDeviceDetail } from "./pages/device-detail.js";
 import { mountReports } from "./pages/reports.js";
+import { mountAnalytics } from "./pages/analytics.js";
 
 const app = document.getElementById("app");
 let refreshTimer = null;
@@ -63,7 +64,7 @@ async function renderProtectedScreen(route, sequence) {
 
     if (sequence !== renderSequence) return;
 
-    const activePage = route.name === "devices" || route.name === "device-detail" ? "devices" : route.name === "reports" ? "reports" : "dashboard";
+    const activePage = route.name === "devices" || route.name === "device-detail" ? "devices" : route.name === "reports" ? "reports" : route.name === "analytics" ? "analytics" : "dashboard";
     app.innerHTML = renderAppLayout(result.usuario, activePage, `<div class="empty">Carregando...</div>`);
     bindLogout(logout);
     const content = document.getElementById("page-content");
@@ -90,6 +91,8 @@ async function renderProtectedScreen(route, sequence) {
             }, 5000);
         } else if (route.name === "reports") {
             await mountReports(content, result.usuario);
+        } else if (route.name === "analytics") {
+            await mountAnalytics(content);
         } else {
             content.innerHTML = `<section class="panel"><h3>Página não encontrada</h3><p class="panel-copy">O endereço solicitado não existe.</p><a class="btn btn-primary" href="#/dashboard">Voltar ao painel</a></section>`;
         }

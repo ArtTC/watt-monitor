@@ -54,6 +54,7 @@ export function renderAppLayout(user, activePage, content) {
             <a href="#/dashboard" title="Visão geral" class="${activePage === "dashboard" ? "active" : ""}">⌂ <span>Visão geral</span></a>
             <a href="#/dispositivos" title="Dispositivos" class="${activePage === "devices" ? "active" : ""}">▦ <span>Dispositivos</span></a>
             <a href="#/relatorios" title="Relatórios" class="${activePage === "reports" ? "active" : ""}">▤ <span>Relatórios</span></a>
+            <a href="#/analises" title="Análises" class="${activePage === "analytics" ? "active" : ""}">⌁ <span>Análises</span></a>
           </nav>
         </aside>
         <div class="app-main">
