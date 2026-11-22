@@ -40,7 +40,9 @@ function setHoverTargets(canvas, targets) {
             let closest = null;
             let closestDistance = Infinity;
             for (const target of state.targets) {
-                if (target.width != null) {
+                if (target.contains) {
+                    if (target.contains(x, y)) { closest = target; closestDistance = 0; break; }
+                } else if (target.width != null) {
                     if (x >= target.x - 4 && x <= target.x + Math.max(6, target.width) + 4 && y >= target.y - 4 && y <= target.y + Math.max(8, target.height) + 4) {
                         const distance = Math.abs(x - (target.x + target.width / 2)) + Math.abs(y - (target.y + target.height / 2));
                         if (distance < closestDistance) { closest = target; closestDistance = distance; }
@@ -172,6 +174,78 @@ export function drawAnalyticsChart(canvas, graph) {
     const minValue = Math.min(0, ...values);
     const maxValue = Math.max(1e-9, ...values);
     const colors = palette;
+
+    if (graph.type === "pie" || graph.type === "doughnut") {
+        const slices = labels.map((label, index) => ({
+            label,
+            value: series.reduce((sum, item) => sum + (isNumeric(item.data[index]) ? Math.max(0, Number(item.data[index])) : 0), 0)
+        })).filter((slice) => slice.value > 0);
+        const total = slices.reduce((sum, slice) => sum + slice.value, 0);
+        if (!total) {
+            setHoverTargets(canvas, []);
+            context.textAlign = "center";
+            context.textBaseline = "middle";
+            context.fillText("Sem valores positivos para este grÃ¡fico", width / 2, height / 2);
+            return;
+        }
+        const radius = Math.max(24, Math.min(height * 0.39, width * 0.27));
+        const centerX = Math.max(radius + 8, Math.min(width * 0.32, width - radius - 110));
+        const centerY = height * 0.48;
+        const innerRadius = graph.type === "doughnut" ? radius * 0.56 : 0;
+        const hoverTargets = [];
+        let angle = -Math.PI / 2;
+        slices.forEach((slice, index) => {
+            const startAngle = angle;
+            const endAngle = angle + Math.PI * 2 * slice.value / total;
+            context.beginPath();
+            context.moveTo(centerX, centerY);
+            context.arc(centerX, centerY, radius, startAngle, endAngle);
+            context.closePath();
+            context.fillStyle = colors[index % colors.length];
+            context.fill();
+            if (innerRadius) {
+                context.beginPath();
+                context.arc(centerX, centerY, innerRadius, 0, Math.PI * 2);
+                context.fillStyle = document.documentElement.dataset.theme === "light" ? "#ffffff" : "#1b1913";
+                context.fill();
+            }
+            const normalizedStart = (startAngle + Math.PI * 2) % (Math.PI * 2);
+            const normalizedEnd = (endAngle + Math.PI * 2) % (Math.PI * 2);
+            hoverTargets.push({
+                contains(x, y) {
+                    const dx = x - centerX, dy = y - centerY;
+                    const distance = Math.hypot(dx, dy);
+                    if (distance > radius || distance < innerRadius) return false;
+                    if (slice.value >= total) return true;
+                    const pointerAngle = (Math.atan2(dy, dx) + Math.PI * 2) % (Math.PI * 2);
+                    return normalizedStart <= normalizedEnd
+                        ? pointerAngle >= normalizedStart && pointerAngle <= normalizedEnd
+                        : pointerAngle >= normalizedStart || pointerAngle <= normalizedEnd;
+                },
+                text: `${formatAxisLabel(slice.label)} Â· ${formatNumber(slice.value)} ${graph.unidade || ""} (${formatNumber(slice.value / total * 100, 1)}%)`.trim()
+            });
+            angle = endAngle;
+        });
+        const legendX = centerX + radius + 16;
+        const legendWidth = Math.max(30, width - legendX - 6);
+        const maxLegendRows = Math.max(1, Math.floor((height - 16) / 20));
+        context.textBaseline = "middle";
+        slices.slice(0, maxLegendRows).forEach((slice, index) => {
+            const y = 14 + index * 20;
+            context.fillStyle = colors[index % colors.length];
+            context.fillRect(legendX, y - 4, 8, 8);
+            context.fillStyle = document.documentElement.dataset.theme === "light" ? "#53645a" : "#94a69a";
+            const label = `${formatAxisLabel(slice.label)} · ${formatNumber(slice.value)}`;
+            context.textAlign = "left";
+            context.fillText(label, legendX + 13, y, Math.max(20, legendWidth - 13));
+        });
+        if (slices.length > maxLegendRows) {
+            context.textAlign = "left";
+            context.fillText(`+ ${slices.length - maxLegendRows} mais`, legendX + 13, 14 + maxLegendRows * 20, legendWidth - 13);
+        }
+        setHoverTargets(canvas, hoverTargets);
+        return;
+    }
 
     if (graph.type === "hbar") {
         const hoverTargets = [];
