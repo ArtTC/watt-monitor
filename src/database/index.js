@@ -1,4 +1,6 @@
 const sqlite = require("node:sqlite");
+const fs = require("node:fs");
+const path = require("node:path");
 // Node.js 26.11+ chama a classe de Database; versoes anteriores usam DatabaseSync.
 const Database = sqlite.Database || sqlite.DatabaseSync;
 const { DATABASE_PATH } = require("../config");
@@ -22,4 +24,15 @@ function validateSchema() {
     }
 }
 
-module.exports = { db, validateSchema };
+function migrateSchema() {
+    const columns = db.prepare("PRAGMA table_info(dispositivos)").all();
+    if (!columns.some((column) => column.name === "removido_em")) {
+        const migration = fs.readFileSync(path.join(__dirname, "..", "..", "database", "migrations", "001_soft_delete_devices.sql"), "utf8");
+        db.exec(migration);
+    }
+    db.exec("CREATE INDEX IF NOT EXISTS idx_dispositivos_usuario_removido ON dispositivos (usuario_id, removido_em)");
+    const macMigration = fs.readFileSync(path.join(__dirname, "..", "..", "database", "migrations", "002_device_mac_history.sql"), "utf8");
+    db.exec(macMigration);
+}
+
+module.exports = { db, validateSchema, migrateSchema };

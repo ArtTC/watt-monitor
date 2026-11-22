@@ -20,7 +20,7 @@ function receive(req, res) {
 
         // Sem chave adicional: o MAC precisa estar previamente vinculado a uma conta.
         const device = devices.findByMac(mac);
-        if (!device) {
+        if (!device || device.removido_em || Number(device.aceita_medicoes) !== 1 || device.esp_id !== mac) {
             return res.status(403).json({ sucesso: false, mensagem: "ESP32 não cadastrado. Vincule o dispositivo a uma conta primeiro." });
         }
 
@@ -67,7 +67,7 @@ function historyForDevice(req, res) {
         if (!device || Number(device.usuario_id) !== Number(req.user.id)) {
             return res.status(404).json({ mensagem: "Dispositivo não encontrado na sua conta." });
         }
-        res.json(measurements.historyForDevice(mac, req.user.id));
+        res.json(measurements.historyForDevice(device.id, req.user.id));
     } catch (error) {
         console.error("Erro ao consultar medições do dispositivo:", error);
         res.status(500).json({ sucesso: false, mensagem: "Erro ao consultar medições do dispositivo." });

@@ -3,11 +3,12 @@ const express = require("express");
 const cors = require("cors");
 
 const { PORT, PUBLIC_DIR, DATABASE_PATH } = require("./src/config");
-const { db, validateSchema } = require("./src/database");
+const { db, validateSchema, migrateSchema } = require("./src/database");
 
 // Validar a estrutura do banco antes de iniciar
 try {
     validateSchema();
+    migrateSchema();
 } catch (error) {
     console.error("\nERRO AO VALIDAR BANCO DE DADOS:");
     console.error(error.message);
@@ -17,6 +18,7 @@ try {
 const authRoutes = require("./src/routes/auth.routes");
 const deviceRoutes = require("./src/routes/devices.routes");
 const measurementRoutes = require("./src/routes/measurements.routes");
+const reportRoutes = require("./src/routes/reports.routes");
 
 const app = express();
 
@@ -36,6 +38,7 @@ app.get("/api/health", (req, res) => {
 // Rotas da aplicação
 app.use("/api/auth", authRoutes);
 app.use("/api/dispositivos", deviceRoutes);
+app.use("/api/relatorios", reportRoutes);
 app.use("/api", measurementRoutes);
 
 // Tratamento de erros

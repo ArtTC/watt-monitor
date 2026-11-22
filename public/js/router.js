@@ -18,6 +18,7 @@ export function resolveRoute() {
     if (parts[0] === "dashboard") return { name: "dashboard" };
     if (parts[0] === "dispositivos" && parts.length === 1) return { name: "devices" };
     if (parts[0] === "dispositivos" && parts.length === 2) return { name: "device-detail", mac: parts[1] };
+    if (parts[0] === "relatorios") return { name: "reports" };
     return { name: "not-found" };
 }
 

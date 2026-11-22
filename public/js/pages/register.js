@@ -1,9 +1,11 @@
 import { api, setToken } from "../api.js";
+import { renderThemeToggle, bindThemeToggle } from "../components/layout.js";
 
 export function renderRegister(container, { onAuthenticated, onLogin }) {
     container.innerHTML = `
       <main class="shell auth-shell">
         <section class="auth-card">
+          <div class="theme-auth">${renderThemeToggle()}</div>
           <div class="brand auth-brand"><div class="brand-mark" aria-hidden="true">☀</div><div><h1>Medidor Solar</h1><p>Monitoramento fotovoltaico</p></div></div>
           <div class="eyebrow">Nova conta</div>
           <h2>Crie seu acesso</h2>
@@ -18,6 +20,8 @@ export function renderRegister(container, { onAuthenticated, onLogin }) {
           <div class="auth-switch">Já possui uma conta? <button type="button" class="link-button" id="go-login">Entrar</button></div>
         </section>
       </main>`;
+
+    bindThemeToggle();
 
     document.getElementById("go-login").addEventListener("click", onLogin);
     document.getElementById("register-form").addEventListener("submit", async (event) => {

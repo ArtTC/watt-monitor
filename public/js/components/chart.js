@@ -2,6 +2,7 @@ import { formatNumber } from "../api.js";
 
 export function drawPowerChart(canvas, emptyElement, records) {
     const context = canvas.getContext("2d");
+    const light = document.documentElement.dataset.theme === "light";
     const bounds = canvas.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
     const width = Math.max(1, bounds.width);
@@ -32,9 +33,9 @@ export function drawPowerChart(canvas, emptyElement, records) {
     for (let index = 0; index <= 3; index++) {
         const y = top + plotHeight * index / 3;
         const value = max - (max - min) * index / 3;
-        context.strokeStyle = "#293a31";
+        context.strokeStyle = light ? "#d7e1da" : "#293a31";
         context.beginPath(); context.moveTo(left, y); context.lineTo(width - right, y); context.stroke();
-        context.fillStyle = "#94a69a";
+        context.fillStyle = light ? "#53645a" : "#94a69a";
         context.fillText(formatNumber(value, 1), left - 8, y);
     }
 
@@ -44,8 +45,8 @@ export function drawPowerChart(canvas, emptyElement, records) {
     }));
 
     const gradient = context.createLinearGradient(0, top, 0, top + plotHeight);
-    gradient.addColorStop(0, "rgba(141,224,167,0.26)");
-    gradient.addColorStop(1, "rgba(141,224,167,0.01)");
+    gradient.addColorStop(0, light ? "rgba(35,125,69,0.22)" : "rgba(141,224,167,0.26)");
+    gradient.addColorStop(1, light ? "rgba(35,125,69,0.01)" : "rgba(141,224,167,0.01)");
     context.beginPath();
     context.moveTo(points[0].x, top + plotHeight);
     points.forEach((point) => context.lineTo(point.x, point.y));
@@ -56,13 +57,13 @@ export function drawPowerChart(canvas, emptyElement, records) {
 
     context.beginPath();
     points.forEach((point, index) => index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y));
-    context.strokeStyle = "#8de0a7";
+    context.strokeStyle = light ? "#237d45" : "#8de0a7";
     context.lineWidth = 2.5;
     context.lineJoin = "round";
     context.lineCap = "round";
     context.stroke();
 
-    context.fillStyle = "#94a69a";
+    context.fillStyle = light ? "#53645a" : "#94a69a";
     context.textBaseline = "top";
     context.textAlign = "left";
     const firstDate = records[0]?.data_hora ? new Date(records[0].data_hora) : null;
